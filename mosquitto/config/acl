@@ -1,0 +1,10 @@
+user daemon
+topic write factorio-display/v1/device/+/set
+topic read factorio-display/v1/device/+/set
+topic read factorio-display/v1/device/+/availability
+topic read factorio-display/v1/device/+/telemetry
+
+user device
+topic read factorio-display/v1/device/+/set
+topic write factorio-display/v1/device/+/availability
+topic write factorio-display/v1/device/+/telemetry

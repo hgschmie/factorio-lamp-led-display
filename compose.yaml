@@ -1,0 +1,37 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto-data:/mosquitto/data
+
+  daemon:
+    build: ./daemon
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    ports:
+      - "127.0.0.1:34198:34198/udp"
+    volumes:
+      - ./config.yaml:/config/display.yaml:ro
+    environment:
+      DISPLAY_CONFIG: /config/display.yaml
+      DISPLAY_UDP_ADDR: :34198
+      MQTT_USERNAME_FILE: /run/secrets/daemon_username
+      MQTT_PASSWORD_FILE: /run/secrets/daemon_password
+    secrets:
+      - daemon_username
+      - daemon_password
+
+secrets:
+  daemon_username:
+    file: ./secrets/daemon_username
+  daemon_password:
+    file: ./secrets/daemon_password
+
+volumes:
+  mosquitto-data:
+

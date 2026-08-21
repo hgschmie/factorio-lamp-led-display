@@ -1,0 +1,8 @@
+config.yaml
+secrets/
+mosquitto/config/passwd
+.pio/
+firmware/.pio/
+firmware/.pio-core/
+*.zip
+.DS_Store

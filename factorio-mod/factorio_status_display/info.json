@@ -1,0 +1,8 @@
+{
+  "name": "factorio_status_display",
+  "version": "1.0.0",
+  "title": "Physical Status Display",
+  "author": "Factorio Display Project",
+  "factorio_version": "2.1",
+  "description": "Assign crafting machines to logical channels and report their status over localhost UDP."
+}

@@ -1,0 +1,26 @@
+mqtt:
+  broker: tcp://mosquitto:1883
+  client_id: factorio-display-daemon
+  prefix: factorio-display/v1
+brightness: 255
+devices:
+  shop-floor-a:
+    pixel_count: 8
+  shop-floor-b:
+    pixel_count: 16
+mappings:
+  - channel: smelter-1
+    device: shop-floor-a
+    pixel: 0
+  - channel: gears
+    device: shop-floor-a
+    pixel: 1
+colors:
+  working:   {r: 0,   g: 255, b: 0,   effect: solid}
+  starved:   {r: 255, g: 180, b: 0,   effect: pulse}
+  blocked:   {r: 255, g: 0,   b: 0,   effect: solid}
+  no_power:  {r: 0,   g: 80,  b: 255, effect: blink}
+  disabled:  {r: 150, g: 0,   b: 255, effect: solid}
+  missing:   {r: 255, g: 0,   b: 180, effect: solid}
+  unknown:   {r: 255, g: 255, b: 255, effect: solid}
+  stale_game: {r: 0,  g: 255, b: 255, effect: pulse}
