@@ -26,26 +26,24 @@ type FramePublisher struct {
 func NewFramePublisher(client Publisher, log *slog.Logger) *FramePublisher {
 	return &FramePublisher{client: client, log: log}
 }
-func (p *FramePublisher) Publish(ctx context.Context, c *config.Config, statuses map[string]string, stale bool) error {
+func (p *FramePublisher) Publish(ctx context.Context, c *config.Config, values map[int]display.Value, stale bool) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.sequence++
-	frames := display.BuildFrames(c, statuses, stale, p.sequence, 7*time.Second)
-	for device, frame := range frames {
-		payload, err := display.MarshalFrame(frame)
-		if err != nil {
-			return err
-		}
-		topic := fmt.Sprintf("%s/device/%s/set", c.MQTT.Prefix, device)
-		token := p.client.Publish(topic, 1, true, payload)
-		if !token.WaitTimeout(5 * time.Second) {
-			return fmt.Errorf("publish %s timed out", topic)
-		}
-		if err := token.Error(); err != nil {
-			return fmt.Errorf("publish %s: %w", topic, err)
-		}
-		p.log.DebugContext(ctx, "frame published", "device", device, "sequence", p.sequence, "stale", stale)
+	frame := display.BuildFrame(c, values, stale, p.sequence, 7*time.Second)
+	payload, err := display.MarshalFrame(frame)
+	if err != nil {
+		return err
 	}
+	topic := fmt.Sprintf("%s/channels/set", c.MQTT.Prefix)
+	token := p.client.Publish(topic, 1, true, payload)
+	if !token.WaitTimeout(5 * time.Second) {
+		return fmt.Errorf("publish %s timed out", topic)
+	}
+	if err := token.Error(); err != nil {
+		return fmt.Errorf("publish %s: %w", topic, err)
+	}
+	p.log.DebugContext(ctx, "channel frame published", "sequence", p.sequence, "stale", stale)
 	return nil
 }
 

@@ -11,11 +11,16 @@ type State struct {
 	mu           sync.RWMutex
 	saveID       string
 	sequences    map[string]uint64
-	channels     map[string]string
+	channels     map[int]Value
 	lastSnapshot time.Time
 }
 
-func NewState() *State { return &State{channels: map[string]string{}, sequences: map[string]uint64{}} }
+type Value struct {
+	Status string
+	Direct *protocol.Direct
+}
+
+func NewState() *State { return &State{channels: map[int]Value{}, sequences: map[string]uint64{}} }
 
 func (s *State) Apply(p protocol.Packet, now time.Time) bool {
 	s.mu.Lock()
@@ -24,23 +29,28 @@ func (s *State) Apply(p protocol.Packet, now time.Time) bool {
 		return false
 	}
 	if p.SaveID != s.saveID {
-		s.saveID, s.channels, s.lastSnapshot = p.SaveID, map[string]string{}, time.Time{}
+		s.saveID, s.channels, s.lastSnapshot = p.SaveID, map[int]Value{}, time.Time{}
 	}
 	if p.Type == "snapshot" {
-		s.channels = make(map[string]string, len(p.Channels))
+		s.channels = make(map[int]Value, len(p.Channels))
 		s.lastSnapshot = now
 	}
 	for _, c := range p.Channels {
-		s.channels[c.ID] = protocol.Classify(c.Status)
+		if direct, ok := c.Direct(); ok {
+			copy := direct
+			s.channels[c.ID] = Value{Direct: &copy}
+		} else {
+			s.channels[c.ID] = Value{Status: protocol.Classify(c.Status)}
+		}
 	}
 	s.sequences[p.SaveID] = p.Sequence
 	return true
 }
 
-func (s *State) Snapshot(now time.Time, staleAfter time.Duration) (map[string]string, bool) {
+func (s *State) Snapshot(now time.Time, staleAfter time.Duration) (map[int]Value, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make(map[string]string, len(s.channels))
+	out := make(map[int]Value, len(s.channels))
 	for k, v := range s.channels {
 		out[k] = v
 	}

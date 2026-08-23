@@ -1,10 +1,10 @@
 user daemon
-topic write factorio-display/v1/device/+/set
-topic read factorio-display/v1/device/+/set
-topic read factorio-display/v1/device/+/availability
-topic read factorio-display/v1/device/+/telemetry
+topic write factorio-display/v2/channels/set
+topic read factorio-display/v2/channels/set
+topic read factorio-display/v2/device/+/availability
+topic read factorio-display/v2/device/+/telemetry
 
 user device
-topic read factorio-display/v1/device/+/set
-topic write factorio-display/v1/device/+/availability
-topic write factorio-display/v1/device/+/telemetry
+topic read factorio-display/v2/channels/set
+topic write factorio-display/v2/device/+/availability
+topic write factorio-display/v2/device/+/telemetry

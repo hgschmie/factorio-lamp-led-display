@@ -9,7 +9,7 @@ import (
 )
 
 func valid() Config {
-	return Config{MQTT: MQTT{Broker: "tcp://localhost:1883"}, Devices: map[string]Device{"d": {2}}, Mappings: []Mapping{{"a", "d", 0}}, Colors: map[string]RGB{
+	return Config{MQTT: MQTT{Broker: "tcp://localhost:1883"}, Colors: map[string]RGB{
 		"working": {Effect: "solid"}, "starved": {Effect: "pulse"}, "blocked": {Effect: "solid"}, "no_power": {Effect: "blink"},
 		"disabled": {Effect: "solid"}, "missing": {Effect: "solid"}, "unknown": {Effect: "solid"}, "stale_game": {Effect: "pulse"},
 	}}
@@ -19,35 +19,21 @@ func TestValidate(t *testing.T) {
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	c = valid()
-	c.Mappings = append(c.Mappings, Mapping{"a", "d", 1})
+	c.MQTT.Prefix = "factorio-display/v1"
 	if c.Validate() == nil {
-		t.Error("accepted duplicate channel")
+		t.Error("accepted wrong protocol prefix")
 	}
 	c = valid()
-	c.Mappings = append(c.Mappings, Mapping{"b", "d", 0})
+	delete(c.Colors, "working")
 	if c.Validate() == nil {
-		t.Error("accepted duplicate pixel")
-	}
-	c = valid()
-	c.Mappings[0].Device = "nope"
-	if c.Validate() == nil {
-		t.Error("accepted unknown device")
-	}
-	c = valid()
-	c.Mappings[0].Pixel = 2
-	if c.Validate() == nil {
-		t.Error("accepted out of range pixel")
+		t.Error("accepted missing required color")
 	}
 }
 
 const reloadYAML = `
 mqtt: {broker: tcp://localhost:1883}
-brightness: 10
-devices: {d: {pixel_count: 2}}
-mappings: [{channel: a, device: d, pixel: 0}]
 colors:
-  working: {effect: solid}
+  working: {r: 10, effect: solid}
   starved: {effect: pulse}
   blocked: {effect: solid}
   no_power: {effect: blink}
@@ -78,7 +64,7 @@ func TestReloaderKeepsLastValidConfig(t *testing.T) {
 	if err == nil || changed || got != initial || r.Current() != initial {
 		t.Fatalf("invalid reload replaced config: changed=%v err=%v", changed, err)
 	}
-	updated := strings.Replace(reloadYAML, "brightness: 10", "brightness: 20", 1)
+	updated := strings.Replace(reloadYAML, "working: {r: 10", "working: {r: 20", 1)
 	if err := os.WriteFile(path, []byte(updated), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +73,7 @@ func TestReloaderKeepsLastValidConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, changed, err = r.Check()
-	if err != nil || !changed || got.Brightness != 20 {
-		t.Fatalf("valid reload failed: brightness=%d changed=%v err=%v", got.Brightness, changed, err)
+	if err != nil || !changed || got.Colors["working"].R != 20 {
+		t.Fatalf("valid reload failed: working.r=%d changed=%v err=%v", got.Colors["working"].R, changed, err)
 	}
 }

@@ -12,13 +12,13 @@ data:extend({
       border_color = {0, 1, 0},
       cursor_box_type = "entity",
       mode = {"any-entity"},
-      entity_type_filters = {"assembling-machine", "furnace", "rocket-silo"}
+      entity_type_filters = {"assembling-machine", "furnace", "rocket-silo", "lamp"}
     },
     alt_select = {
       border_color = {1, 0.5, 0},
       cursor_box_type = "entity",
       mode = {"any-entity"},
-      entity_type_filters = {"assembling-machine", "furnace", "rocket-silo"}
+      entity_type_filters = {"assembling-machine", "furnace", "rocket-silo", "lamp"}
     }
   },
   {
@@ -39,3 +39,35 @@ data:extend({
     consuming = "none"
   }
 })
+
+-- Clone the base lamp so the game supplies the complete native lamp GUI,
+-- circuit conditions, color mapping, separate RGB signals, and packed RGB mode.
+local entity_name = "factorio-status-display-lamp"
+local lamp = table.deepcopy(data.raw.lamp["small-lamp"])
+lamp.name = entity_name
+lamp.minable = lamp.minable or {}
+lamp.minable.result = entity_name
+lamp.next_upgrade = nil
+
+local item = table.deepcopy(data.raw.item["small-lamp"])
+item.name = entity_name
+item.place_result = entity_name
+item.order = (item.order or "") .. "[physical-display]"
+
+local recipe = table.deepcopy(data.raw.recipe["small-lamp"])
+recipe.name = entity_name
+recipe.results = {{type = "item", name = entity_name, amount = 1}}
+
+data:extend({lamp, item, recipe})
+
+-- Unlock alongside the base lamp, without depending on a particular technology name.
+if recipe.enabled == false then
+  for _, technology in pairs(data.raw.technology) do
+    for _, effect in pairs(technology.effects or {}) do
+      if effect.type == "unlock-recipe" and effect.recipe == "small-lamp" then
+        table.insert(technology.effects, {type = "unlock-recipe", recipe = entity_name})
+        break
+      end
+    end
+  end
+end

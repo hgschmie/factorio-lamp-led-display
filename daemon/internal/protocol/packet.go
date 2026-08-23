@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,11 +9,29 @@ import (
 	"strings"
 )
 
-const Version = 1
+const Version = 2
+const ChannelCount = 64
 
 type Channel struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
+	ID         int    `json:"id"`
+	Status     string `json:"status,omitempty"`
+	R          *uint8 `json:"r,omitempty"`
+	G          *uint8 `json:"g,omitempty"`
+	B          *uint8 `json:"b,omitempty"`
+	Brightness *uint8 `json:"brightness,omitempty"`
+	Effect     string `json:"effect,omitempty"`
+}
+
+type Direct struct {
+	R, G, B, Brightness uint8
+	Effect              string
+}
+
+func (c Channel) Direct() (Direct, bool) {
+	if c.R == nil || c.G == nil || c.B == nil || c.Brightness == nil {
+		return Direct{}, false
+	}
+	return Direct{*c.R, *c.G, *c.B, *c.Brightness, c.Effect}, true
 }
 
 type Packet struct {
@@ -25,15 +44,57 @@ type Packet struct {
 }
 
 func Decode(data []byte) (Packet, error) {
-	var p Packet
+	type wireChannel struct {
+		ID         *int   `json:"id"`
+		Status     string `json:"status,omitempty"`
+		R          *uint8 `json:"r,omitempty"`
+		G          *uint8 `json:"g,omitempty"`
+		B          *uint8 `json:"b,omitempty"`
+		Brightness *uint8 `json:"brightness,omitempty"`
+		Effect     string `json:"effect,omitempty"`
+	}
+	type wirePacket struct {
+		Version  int             `json:"version"`
+		SaveID   string          `json:"save_id"`
+		Sequence uint64          `json:"sequence"`
+		Tick     uint64          `json:"tick"`
+		Type     string          `json:"type"`
+		Channels json.RawMessage `json:"channels"`
+	}
+	var wire wirePacket
 	dec := json.NewDecoder(strings.NewReader(string(data)))
 	dec.DisallowUnknownFields()
-	if err := dec.Decode(&p); err != nil {
-		return p, fmt.Errorf("decode packet: %w", err)
+	if err := dec.Decode(&wire); err != nil {
+		return Packet{}, fmt.Errorf("decode packet: %w", err)
 	}
 	var extra any
 	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
-		return p, errors.New("decode packet: trailing data")
+		return Packet{}, errors.New("decode packet: trailing data")
+	}
+	var wireChannels []wireChannel
+	rawChannels := bytes.TrimSpace(wire.Channels)
+	if len(rawChannels) == 0 {
+		return Packet{}, errors.New("channels is required")
+	}
+	if bytes.Equal(rawChannels, []byte("{}")) {
+		wireChannels = []wireChannel{}
+	} else {
+		channelDecoder := json.NewDecoder(bytes.NewReader(rawChannels))
+		channelDecoder.DisallowUnknownFields()
+		if err := channelDecoder.Decode(&wireChannels); err != nil {
+			return Packet{}, fmt.Errorf("decode packet channels: %w", err)
+		}
+		if err := channelDecoder.Decode(&extra); !errors.Is(err, io.EOF) {
+			return Packet{}, errors.New("decode packet channels: trailing data")
+		}
+	}
+	p := Packet{Version: wire.Version, SaveID: wire.SaveID, Sequence: wire.Sequence, Tick: wire.Tick, Type: wire.Type}
+	p.Channels = make([]Channel, 0, len(wireChannels))
+	for _, c := range wireChannels {
+		if c.ID == nil {
+			return p, errors.New("channel id is required")
+		}
+		p.Channels = append(p.Channels, Channel{ID: *c.ID, Status: c.Status, R: c.R, G: c.G, B: c.B, Brightness: c.Brightness, Effect: c.Effect})
 	}
 	if p.Version != Version {
 		return p, fmt.Errorf("unsupported version %d", p.Version)
@@ -47,17 +108,28 @@ func Decode(data []byte) (Packet, error) {
 	if p.Type != "snapshot" && p.Type != "update" {
 		return p, fmt.Errorf("unsupported packet type %q", p.Type)
 	}
-	seen := make(map[string]struct{}, len(p.Channels))
+	seen := make(map[int]struct{}, len(p.Channels))
 	for _, c := range p.Channels {
-		if strings.TrimSpace(c.ID) == "" {
-			return p, errors.New("channel id is required")
+		if c.ID < 0 || c.ID >= ChannelCount {
+			return p, fmt.Errorf("channel id %d is outside 0..%d", c.ID, ChannelCount-1)
 		}
 		if _, ok := seen[c.ID]; ok {
-			return p, fmt.Errorf("duplicate channel %q", c.ID)
+			return p, fmt.Errorf("duplicate channel %d", c.ID)
 		}
 		seen[c.ID] = struct{}{}
-		if strings.TrimSpace(c.Status) == "" {
-			return p, fmt.Errorf("channel %q has empty status", c.ID)
+		direct, isDirect := c.Direct()
+		hasDirectField := c.R != nil || c.G != nil || c.B != nil || c.Brightness != nil || c.Effect != ""
+		if isDirect {
+			if c.Status != "" {
+				return p, fmt.Errorf("channel %d mixes status and direct color", c.ID)
+			}
+			if direct.Effect != "solid" && direct.Effect != "blink" && direct.Effect != "pulse" {
+				return p, fmt.Errorf("channel %d has invalid effect", c.ID)
+			}
+		} else if hasDirectField {
+			return p, fmt.Errorf("channel %d has incomplete direct color", c.ID)
+		} else if strings.TrimSpace(c.Status) == "" {
+			return p, fmt.Errorf("channel %d has neither status nor direct color", c.ID)
 		}
 	}
 	return p, nil

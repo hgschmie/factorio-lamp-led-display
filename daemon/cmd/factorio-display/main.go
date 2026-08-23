@@ -24,7 +24,7 @@ type received struct {
 }
 
 func main() {
-	configPath := flag.String("config", env("DISPLAY_CONFIG", "/config/display.yaml"), "mapping configuration")
+	configPath := flag.String("config", env("DISPLAY_CONFIG", "/config/display.yaml"), "display configuration")
 	udpAddr := flag.String("udp", env("DISPLAY_UDP_ADDR", ":34198"), "UDP listen address")
 	flag.Parse()
 	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel()}))

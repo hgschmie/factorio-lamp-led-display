@@ -30,7 +30,12 @@ struct Settings {
   String device;
   String pixelOrder = "RGB";
   uint8_t pixels = 0;
-  bool valid() const { return broker.length() && device.length() && (pixelOrder == "RGB" || pixelOrder == "GRB") && pixels >= 1 && pixels <= display::kMaxPixels; }
+  uint8_t channelOffset = 0;
+  bool valid() const {
+    return broker.length() && device.length() && (pixelOrder == "RGB" || pixelOrder == "GRB") &&
+      pixels >= 1 && pixels <= display::kMaxPixels && channelOffset < display::kChannelCount &&
+      static_cast<uint16_t>(channelOffset) + pixels <= display::kChannelCount;
+  }
 };
 
 Preferences preferences;
@@ -47,7 +52,8 @@ uint32_t lastMQTTAttempt = 0;
 volatile bool portalRequested = false;
 String mdnsHostname;
 
-String topic(const char* suffix) { return "factorio-display/v1/device/" + settings.device + "/" + suffix; }
+String topic(const char* suffix) { return "factorio-display/v2/device/" + settings.device + "/" + suffix; }
+String channelFrameTopic() { return "factorio-display/v2/channels/set"; }
 
 void loadSettings() {
   preferences.begin("display", true);
@@ -55,6 +61,7 @@ void loadSettings() {
   settings.username = preferences.getString("mqtt_user", ""); settings.password = preferences.getString("mqtt_pass", "");
   settings.device = preferences.getString("device", ""); settings.pixelOrder = preferences.getString("order", "RGB");
   settings.pixels = preferences.getUChar("pixels", 0);
+  settings.channelOffset = preferences.getUChar("chan_offset", 0);
   preferences.end();
 }
 
@@ -64,6 +71,7 @@ void saveSettings(const Settings& value) {
   preferences.putString("mqtt_user", value.username); preferences.putString("mqtt_pass", value.password);
   preferences.putString("device", value.device); preferences.putString("order", value.pixelOrder);
   preferences.putUChar("pixels", value.pixels);
+  preferences.putUChar("chan_offset", value.channelOffset);
   preferences.end();
 }
 
@@ -118,7 +126,9 @@ void showConfigPage(const String& message = "", int status = 200) {
   page += htmlEscape(settings.username); page += F("'><label>MQTT password</label><input type='password' name='password' placeholder='Leave blank to keep current password'>"
                                         "<label>Device ID</label><input required maxlength='32' pattern='[A-Za-z0-9._-]+' name='device' value='");
   page += htmlEscape(settings.device); page += F("'><label>Pixel count</label><input required type='number' min='1' max='16' name='pixels' value='");
-  page += String(settings.pixels); page += F("'><label>Pixel color order</label><select name='order'><option value='RGB'");
+  page += String(settings.pixels); page += F("'><label>Channel offset</label><input required type='number' min='0' max='63' name='offset' value='");
+  page += String(settings.channelOffset); page += F("'><p class='note'>Pixel 0 displays the offset channel; each following pixel displays the next channel.</p>"
+                                                   "<label>Pixel color order</label><select name='order'><option value='RGB'");
   if (settings.pixelOrder == "RGB") page += F(" selected");
   page += F(">RGB</option><option value='GRB'");
   if (settings.pixelOrder == "GRB") page += F(" selected");
@@ -137,14 +147,19 @@ void saveConfigPage() {
   if (newPassword.length()) candidate.password = newPassword;
   const long port = webServer.arg("port").toInt();
   const long pixels = webServer.arg("pixels").toInt();
+  const long offset = webServer.arg("offset").toInt();
   if (port < 1 || port > 65535 || pixels < 1 || pixels > display::kMaxPixels ||
+      offset < 0 || offset >= display::kChannelCount || offset + pixels > display::kChannelCount ||
       !candidate.broker.length() || !validDeviceID(candidate.device) ||
       (candidate.pixelOrder != "RGB" && candidate.pixelOrder != "GRB")) {
-    showConfigPage("Invalid values. Check the broker, port, device ID, and pixel count.", 400); return;
+    showConfigPage("Invalid values. Check the broker, port, device ID, pixel count, and channel offset.", 400); return;
   }
-  candidate.port = static_cast<uint16_t>(port); candidate.pixels = static_cast<uint8_t>(pixels);
+  candidate.port = static_cast<uint16_t>(port); candidate.pixels = static_cast<uint8_t>(pixels); candidate.channelOffset = static_cast<uint8_t>(offset);
   saveSettings(candidate);
-  webServer.send(200, "text/html", "<!doctype html><meta name='viewport' content='width=device-width'><p>Saved. Restarting&hellip;</p>");
+  webServer.send(200, "text/html", "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+                                     "<meta http-equiv='refresh' content='10;url=/'>"
+                                     "<title>Factorio Display</title></head><body><p>Saved. Restarting&hellip;</p>"
+                                     "<p>This page will return to the display settings in 10 seconds.</p></body></html>");
   delay(300); ESP.restart();
 }
 
@@ -159,10 +174,11 @@ void startConfigServer() {
 }
 
 bool runPortal(bool force = false) {
-  char broker[65], port[6], username[65], password[65], device[33], pixels[3], order[4];
+  char broker[65], port[6], username[65], password[65], device[33], pixels[3], offset[3], order[4];
   snprintf(broker,sizeof(broker),"%s",settings.broker.c_str()); snprintf(port,sizeof(port),"%u",settings.port);
   snprintf(username,sizeof(username),"%s",settings.username.c_str()); snprintf(password,sizeof(password),"%s",settings.password.c_str());
   snprintf(device,sizeof(device),"%s",settings.device.c_str()); snprintf(pixels,sizeof(pixels),"%u",settings.pixels);
+  snprintf(offset,sizeof(offset),"%u",settings.channelOffset);
   snprintf(order,sizeof(order),"%s",settings.pixelOrder.c_str());
   WiFiManager wm;
   WiFiManagerParameter pBroker("broker","MQTT broker host",broker,sizeof(broker));
@@ -171,15 +187,21 @@ bool runPortal(bool force = false) {
   WiFiManagerParameter pPass("password","MQTT password",password,sizeof(password));
   WiFiManagerParameter pDevice("device","Device ID",device,sizeof(device));
   WiFiManagerParameter pPixels("pixels","Pixel count (1-16)",pixels,sizeof(pixels));
+  WiFiManagerParameter pOffset("offset","Channel offset (0-63)",offset,sizeof(offset));
   WiFiManagerParameter pOrder("order","Pixel color order (RGB or GRB)",order,sizeof(order));
-  wm.addParameter(&pBroker);wm.addParameter(&pPort);wm.addParameter(&pUser);wm.addParameter(&pPass);wm.addParameter(&pDevice);wm.addParameter(&pPixels);wm.addParameter(&pOrder);
+  wm.addParameter(&pBroker);wm.addParameter(&pPort);wm.addParameter(&pUser);wm.addParameter(&pPass);wm.addParameter(&pDevice);wm.addParameter(&pPixels);wm.addParameter(&pOffset);wm.addParameter(&pOrder);
   wm.setConfigPortalTimeout(300);
   const String ap = "Factorio-Display-" + String((uint32_t)(ESP.getEfuseMac() & 0xffffff),HEX);
   const bool connected = force ? wm.startConfigPortal(ap.c_str()) : wm.autoConnect(ap.c_str());
   if (!connected) return false;
+  const long portalPort=atol(pPort.getValue());const long portalPixels=atol(pPixels.getValue());const long portalOffset=atol(pOffset.getValue());
+  if(portalPort<1||portalPort>65535||portalPixels<1||portalPixels>display::kMaxPixels||portalOffset<0||portalOffset>=display::kChannelCount||portalOffset+portalPixels>display::kChannelCount){
+    Serial.println("Provisioning numeric values invalid");return false;
+  }
   Settings candidate;
-  candidate.broker=pBroker.getValue(); candidate.port=constrain(atoi(pPort.getValue()),1,65535);
-  candidate.username=pUser.getValue();candidate.password=pPass.getValue();candidate.device=pDevice.getValue();candidate.pixels=atoi(pPixels.getValue());
+  candidate.broker=pBroker.getValue();candidate.port=static_cast<uint16_t>(portalPort);
+  candidate.username=pUser.getValue();candidate.password=pPass.getValue();candidate.device=pDevice.getValue();candidate.pixels=static_cast<uint8_t>(portalPixels);
+  candidate.channelOffset=static_cast<uint8_t>(portalOffset);
   candidate.pixelOrder=pOrder.getValue();candidate.pixelOrder.toUpperCase();
   if (!candidate.valid() || !validDeviceID(candidate.device)) { Serial.println("Provisioning values invalid"); return false; }
   settings=candidate;saveSettings(settings);return true;
@@ -187,7 +209,7 @@ bool runPortal(bool force = false) {
 
 void mqttCallback(char*, byte* payload, unsigned int length) {
   display::Frame candidate; std::string error;
-  if (!display::parseFrame(reinterpret_cast<char*>(payload),length,settings.device.c_str(),settings.pixels,lastSequence,millis(),candidate,error)) {
+  if (!display::parseFrame(reinterpret_cast<char*>(payload),length,settings.pixels,settings.channelOffset,lastSequence,millis(),candidate,error)) {
     Serial.printf("Rejected MQTT frame: %s\n",error.c_str()); return;
   }
   frame=candidate;lastSequence=frame.sequence;haveFrame=true;
@@ -205,12 +227,13 @@ bool connectMQTT() {
   // A reconnect begins a new ordered delivery session. This permits the broker's
   // retained frame (and a restarted daemon's sequence) to restore the display.
   lastSequence=0;haveFrame=false;
-  publishAvailability("online"); mqtt.subscribe(topic("set").c_str(),1); return true;
+  publishAvailability("online"); mqtt.subscribe(channelFrameTopic().c_str(),1); return true;
 }
 
 void publishTelemetry() {
   JsonDocument doc;doc["version"]=1;doc["firmware"]=FIRMWARE_VERSION;doc["ip"]=WiFi.localIP().toString();
   doc["rssi"]=WiFi.RSSI();doc["uptime_s"]=millis()/1000;doc["pixel_count"]=settings.pixels;
+  doc["channel_offset"]=settings.channelOffset;
   doc["pixel_order"]=settings.pixelOrder;
   char payload[256];const size_t n=serializeJson(doc,payload,sizeof(payload));
   mqtt.publish(topic("telemetry").c_str(),reinterpret_cast<const uint8_t*>(payload),n,false);
@@ -228,10 +251,10 @@ void render() {
   if (state==display::RenderState::AwaitingFrame) {
     strip->clear();strip->show();return;
   }
-  strip->setBrightness(frame.brightness);
+  strip->setBrightness(display::kMaxBrightness);
   const bool blink=(now/500)%2==0;const float pulse=(sinf(now/700.0f)+1.0f)*0.5f;
   for(uint8_t i=0;i<frame.pixelCount;i++){
-    const auto& p=frame.pixels[i];float amount=1.0f;if(p.effect==display::Effect::Blink)amount=blink?1.0f:0.0f;else if(p.effect==display::Effect::Pulse)amount=pulse;
+    const auto& p=frame.pixels[i];float amount=p.brightness/255.0f;if(p.effect==display::Effect::Blink)amount*=blink?1.0f:0.0f;else if(p.effect==display::Effect::Pulse)amount*=pulse;
     strip->setPixelColor(i,strip->Color(scale(p.r,amount),scale(p.g,amount),scale(p.b,amount)));
   }
   strip->show();
@@ -255,7 +278,7 @@ void setup() {
   while(!runPortal()){Serial.println("Wi-Fi/provisioning failed; retrying");delay(1000);}
   const neoPixelType pixelType=(settings.pixelOrder=="GRB"?NEO_GRB:NEO_RGB)+NEO_KHZ800;
   strip=new Adafruit_NeoPixel(settings.pixels,DATA_PIN,pixelType);strip->begin();strip->clear();strip->show();
-  mqtt.setServer(settings.broker.c_str(),settings.port);mqtt.setCallback(mqttCallback);mqtt.setBufferSize(4096);mqtt.setKeepAlive(30);mqtt.setSocketTimeout(2);
+  mqtt.setServer(settings.broker.c_str(),settings.port);mqtt.setCallback(mqttCallback);mqtt.setBufferSize(8192);mqtt.setKeepAlive(30);mqtt.setSocketTimeout(2);
   startConfigServer();
 }
 

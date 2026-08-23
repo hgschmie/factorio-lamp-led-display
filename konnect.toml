@@ -1,0 +1,2 @@
+eager_toolsets = true
+ipc_address = "ipc:///tmp/kicad/api.sock"

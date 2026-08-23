@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -40,22 +41,32 @@ func TestFramePublisherUsesRetainedQoS1FullFrame(t *testing.T) {
 	client := &mqttPublisher{}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	publisher := NewFramePublisher(client, logger)
-	cfg := &config.Config{MQTT: config.MQTT{Prefix: config.TopicPrefix}, Brightness: 12, Devices: map[string]config.Device{"dev": {PixelCount: 2}}, Mappings: []config.Mapping{{Channel: "a", Device: "dev", Pixel: 0}}, Colors: map[string]config.RGB{"working": {G: 9, Effect: "solid"}, "unknown": {Effect: "solid"}, "stale_game": {Effect: "pulse"}}}
-	if err := publisher.Publish(context.Background(), cfg, map[string]string{"a": "working"}, false); err != nil {
+	cfg := &config.Config{MQTT: config.MQTT{Prefix: config.TopicPrefix}, Colors: map[string]config.RGB{"working": {G: 9, Effect: "solid"}, "unknown": {Effect: "solid"}, "stale_game": {Effect: "pulse"}}}
+	if err := publisher.Publish(context.Background(), cfg, map[int]display.Value{0: {Status: "working"}}, false); err != nil {
 		t.Fatal(err)
 	}
 	if len(client.messages) != 1 {
 		t.Fatalf("got %d messages", len(client.messages))
 	}
 	m := client.messages[0]
-	if m.topic != "factorio-display/v1/device/dev/set" || m.qos != 1 || !m.retained {
+	if m.topic != "factorio-display/v2/channels/set" || m.qos != 1 || !m.retained {
 		t.Fatalf("bad publish metadata %#v", m)
 	}
 	var frame display.Frame
 	if err := json.Unmarshal(m.payload, &frame); err != nil {
 		t.Fatal(err)
 	}
-	if len(frame.Pixels) != 2 || frame.Pixels[0].G != 9 || frame.Sequence != 1 {
+	if len(frame.Channels) != 64 || frame.Channels[0].G != 9 || frame.Sequence != 1 {
 		t.Fatalf("bad frame %#v", frame)
+	}
+	if bytes.Contains(m.payload, []byte(`"device"`)) {
+		t.Fatalf("global frame unexpectedly contains a device field: %s", m.payload)
+	}
+	var topLevel map[string]json.RawMessage
+	if err := json.Unmarshal(m.payload, &topLevel); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := topLevel["brightness"]; ok {
+		t.Fatalf("global frame unexpectedly contains master brightness: %s", m.payload)
 	}
 }

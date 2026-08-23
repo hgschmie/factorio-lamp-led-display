@@ -9,8 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const MaxPixels = 16
-const TopicPrefix = "factorio-display/v1"
+const TopicPrefix = "factorio-display/v2"
 
 type RGB struct {
 	R      uint8  `yaml:"r" json:"r"`
@@ -19,25 +18,14 @@ type RGB struct {
 	Effect string `yaml:"effect" json:"effect"`
 }
 
-type Device struct {
-	PixelCount int `yaml:"pixel_count"`
-}
-type Mapping struct {
-	Channel string `yaml:"channel"`
-	Device  string `yaml:"device"`
-	Pixel   int    `yaml:"pixel"`
-}
 type MQTT struct {
 	Broker   string `yaml:"broker"`
 	ClientID string `yaml:"client_id"`
 	Prefix   string `yaml:"prefix"`
 }
 type Config struct {
-	MQTT       MQTT              `yaml:"mqtt"`
-	Brightness uint8             `yaml:"brightness"`
-	Devices    map[string]Device `yaml:"devices"`
-	Mappings   []Mapping         `yaml:"mappings"`
-	Colors     map[string]RGB    `yaml:"colors"`
+	MQTT   MQTT           `yaml:"mqtt"`
+	Colors map[string]RGB `yaml:"colors"`
 }
 
 var requiredColors = []string{"working", "starved", "blocked", "no_power", "disabled", "missing", "unknown", "stale_game"}
@@ -71,41 +59,7 @@ func (c *Config) Validate() error {
 	}
 	c.MQTT.Prefix = strings.TrimSuffix(c.MQTT.Prefix, "/")
 	if c.MQTT.Prefix != TopicPrefix {
-		return fmt.Errorf("mqtt.prefix must be %q for protocol version 1", TopicPrefix)
-	}
-	if len(c.Devices) == 0 {
-		return fmt.Errorf("at least one device is required")
-	}
-	for id, d := range c.Devices {
-		if strings.TrimSpace(id) == "" {
-			return fmt.Errorf("device id cannot be empty")
-		}
-		if d.PixelCount < 1 || d.PixelCount > MaxPixels {
-			return fmt.Errorf("device %q pixel_count must be 1..%d", id, MaxPixels)
-		}
-	}
-	channels := map[string]bool{}
-	pixels := map[string]bool{}
-	for _, m := range c.Mappings {
-		if strings.TrimSpace(m.Channel) == "" {
-			return fmt.Errorf("mapping channel cannot be empty")
-		}
-		if channels[m.Channel] {
-			return fmt.Errorf("duplicate channel %q", m.Channel)
-		}
-		channels[m.Channel] = true
-		d, ok := c.Devices[m.Device]
-		if !ok {
-			return fmt.Errorf("channel %q references unknown device %q", m.Channel, m.Device)
-		}
-		if m.Pixel < 0 || m.Pixel >= d.PixelCount || m.Pixel >= MaxPixels {
-			return fmt.Errorf("channel %q pixel %d is outside device range", m.Channel, m.Pixel)
-		}
-		key := fmt.Sprintf("%s/%d", m.Device, m.Pixel)
-		if pixels[key] {
-			return fmt.Errorf("duplicate pixel assignment %s", key)
-		}
-		pixels[key] = true
+		return fmt.Errorf("mqtt.prefix must be %q for protocol version 2", TopicPrefix)
 	}
 	for _, name := range requiredColors {
 		color, ok := c.Colors[name]
