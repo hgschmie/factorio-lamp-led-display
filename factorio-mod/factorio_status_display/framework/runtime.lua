@@ -1,0 +1,57 @@
+----------------------------------------------------------------------------------------------------
+-- access to the framework provided runtime storage - ported from flib
+----------------------------------------------------------------------------------------------------
+assert(script)
+assert(Framework)
+
+local Player = require('stdlib.event.player')
+
+--- Main class governing the runtime.
+-- Runtime exists during gameplay.
+---@class FrameworkRuntime
+local FrameworkRuntime = {}
+
+--- Framework storage, not intended for direct access from the mod
+---@return table<string,any?> framework_storage
+function FrameworkRuntime:storage()
+    storage.framework = storage.framework or {}
+    return storage.framework
+end
+
+--- Returns framework managed per-player storage
+---@param player_index integer
+---@return table<string,any?> player_storage
+function FrameworkRuntime:player_storage(player_index)
+    local player_data = Player.pdata(player_index)
+
+    player_data.framework = player_data.framework or {}
+    return player_data.framework
+end
+
+local function get_id(self, name, initial_function)
+    if self[name] then return self[name] end
+    assert(self:storage(), 'no framework storage found!')
+
+    if self:storage()[name] then
+        Framework.logger.log(3, 'runtime', 'Loaded %s from storage', function() return name end)
+        self[name] = self:storage()[name]
+    else
+        self[name] = initial_function and initial_function() or 0
+        Framework.logger.log(3, 'runtime', 'Created %s (%d)', function() return name, self[name] end)
+        self:storage()[name] = self[name]
+    end
+    return self[name]
+end
+
+--- Get (generate if necessary) run ID. run id increments for each call.
+--- Unique(-ish) ID for the current save, so that we can have one persistent log file per savegame.
+---@return integer run_id
+function FrameworkRuntime:get_run_id()
+    local run_id = get_id(self, 'run_id')
+    self:storage().run_id = run_id + 1
+    return run_id
+end
+
+----------------------------------------------------------------------------------------------------
+
+return FrameworkRuntime
