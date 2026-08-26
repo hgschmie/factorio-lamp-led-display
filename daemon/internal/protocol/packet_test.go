@@ -19,6 +19,10 @@ func TestDecode(t *testing.T) {
 	if err != nil || len(empty.Channels) != 0 {
 		t.Fatalf("Factorio-style empty channels object rejected: %#v, %v", empty, err)
 	}
+	reset, err := Decode([]byte(`{"version":2,"save_id":"save","sequence":1,"tick":1,"type":"reset","channels":[{"id":5,"status":"working"}]}`))
+	if err != nil || reset.Type != "reset" || len(reset.Channels) != 1 {
+		t.Fatalf("reset packet rejected: %#v, %v", reset, err)
+	}
 	for _, bad := range []string{
 		`{"version":1,"save_id":"s","sequence":1,"type":"snapshot","channels":[]}`,
 		`{"version":2,"save_id":"","sequence":1,"type":"snapshot","channels":[]}`,

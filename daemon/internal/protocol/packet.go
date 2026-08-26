@@ -105,7 +105,7 @@ func Decode(data []byte) (Packet, error) {
 	if p.Sequence == 0 {
 		return p, errors.New("sequence must be positive")
 	}
-	if p.Type != "snapshot" && p.Type != "update" {
+	if p.Type != "snapshot" && p.Type != "update" && p.Type != "reset" {
 		return p, fmt.Errorf("unsupported packet type %q", p.Type)
 	}
 	seen := make(map[int]struct{}, len(p.Channels))

@@ -25,15 +25,22 @@ func NewState() *State { return &State{channels: map[int]Value{}, sequences: map
 func (s *State) Apply(p protocol.Packet, now time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if p.Sequence <= s.sequences[p.SaveID] {
-		return false
-	}
-	if p.SaveID != s.saveID {
-		s.saveID, s.channels, s.lastSnapshot = p.SaveID, map[int]Value{}, time.Time{}
-	}
-	if p.Type == "snapshot" {
+	if p.Type == "reset" {
+		s.saveID = p.SaveID
+		s.sequences = map[string]uint64{p.SaveID: p.Sequence}
 		s.channels = make(map[int]Value, len(p.Channels))
 		s.lastSnapshot = now
+	} else {
+		if p.Sequence <= s.sequences[p.SaveID] {
+			return false
+		}
+		if p.SaveID != s.saveID {
+			s.saveID, s.channels, s.lastSnapshot = p.SaveID, map[int]Value{}, time.Time{}
+		}
+		if p.Type == "snapshot" {
+			s.channels = make(map[int]Value, len(p.Channels))
+			s.lastSnapshot = now
+		}
 	}
 	for _, c := range p.Channels {
 		if direct, ok := c.Direct(); ok {
