@@ -5,7 +5,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/factorio-display ./cmd/factorio-display
 
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM alpine:3.24
 COPY --from=build /out/factorio-display /factorio-display
+USER 65532:65532
 ENTRYPOINT ["/factorio-display"]
-
