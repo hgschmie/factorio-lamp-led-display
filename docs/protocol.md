@@ -1,25 +1,124 @@
-# Version 2 protocols
+# Version 2 protocol reference
 
-Factorio sends localhost UDP datagrams to port 34198. There are exactly 64 channels, numbered `0..63`. `snapshot` replaces all channel state and is the five-second heartbeat; `update` merges only changed channels. Sequence numbers are positive and monotonically increasing within a save ID.
+There are exactly 64 logical channels. The Factorio interface displays them as `1..64`; UDP and MQTT use `0..63`.
 
-Factorio serializes an empty Lua table as `{}`. The daemon therefore accepts `"channels":{}` only as an empty channel list; non-empty channel objects remain invalid.
+## Factorio to daemon: UDP
 
-```json
-{"version":2,"save_id":"abc","sequence":42,"tick":1234,"type":"snapshot","channels":[{"id":0,"status":"working"}]}
-```
-
-Physical-display lamps use direct-color records in the same `channels` array. Status and direct-color records may be mixed in one snapshot. Direct records require RGB, brightness, and effect fields.
+The daemon listens on UDP port `34198`, published by Compose only on host loopback. A packet has this envelope:
 
 ```json
-{"id":8,"r":255,"g":80,"b":0,"brightness":192,"effect":"pulse"}
+{
+  "version": 2,
+  "save_id": "12345678-90abcdef",
+  "sequence": 42,
+  "tick": 1234,
+  "type": "snapshot",
+  "channels": [
+    {"id": 0, "r": 0, "g": 255, "b": 0, "brightness": 192, "effect": "solid"}
+  ]
+}
 ```
 
-The daemon publishes one retained QoS 1 frame to `factorio-display/v2/channels/set`. It contains all 64 channels and has no device-specific fields. Frames expire locally on each controller after `expires_in_ms`; this relative expiry works before the ESP has a wall clock.
+Envelope rules:
+
+- `version` must be `2`, `save_id` must be non-empty, and `sequence` must be positive.
+- `type` is `snapshot`, `update`, or `reset`.
+- Channel IDs must be unique integers in `0..63`.
+- Unknown JSON fields and trailing JSON data are rejected.
+- Factorio serializes an empty Lua table as `{}`. The daemon accepts `"channels": {}` only as an empty list; a non-empty channel object is invalid.
+
+Packet behavior:
+
+- `snapshot` replaces the complete state, establishes the last full-snapshot time, and is normally sent every 300 game ticks.
+- `update` merges only the listed channels. It does not refresh the full-snapshot heartbeat.
+- `reset` is an authoritative snapshot used when a save is loaded. It bypasses the prior ordering check, replaces the active save ID and all channels, refreshes the heartbeat, and resets sequence tracking to its own sequence.
+- Non-reset packets with a sequence less than or equal to the last accepted sequence for their save ID are ignored.
+
+The current lamp mod sends direct-color channel records. All five color fields are required together, and a direct record may not also contain `status`:
 
 ```json
-{"version":2,"sequence":9,"expires_in_ms":7000,"channels":[{"channel":0,"r":0,"g":255,"b":0,"brightness":127,"effect":"solid"}]}
+{"id": 8, "r": 255, "g": 80, "b": 0, "brightness": 192, "effect": "pulse"}
 ```
 
-The example is abbreviated; a valid frame has one unique record for every channel `0..63`. Each channel has an independent `0..255` brightness. Status and unassigned channels use `255`; physical-display lamps use their in-game brightness setting. Omitted channel brightness defaults to `255` for compatibility. Effects are `solid`, `blink`, or `pulse`.
+RGB and brightness values are integers in `0..255`. Effect is `solid`, `blink`, or `pulse`.
 
-Each controller stores a pixel count and channel offset. Local pixel `0` displays the offset channel and local pixel `n` displays `offset + n`; the configured range must stay within `0..63`. The controller validates the entire global frame before atomically extracting its local range. It rejects malformed, incomplete, wrong-version, expired, duplicate-channel, out-of-range, and non-increasing-sequence frames. Device identity is used only for MQTT client identity, retained availability at `factorio-display/v2/device/<device>/availability`, and telemetry at `factorio-display/v2/device/<device>/telemetry`. MQTT Last Will supplies the offline transition after an unclean disconnect.
+The daemon also accepts status records for compatibility and testing:
+
+```json
+{"id": 0, "status": "working"}
+```
+
+Raw statuses are classified as follows:
+
+| Output | Accepted raw values |
+|---|---|
+| `working` | `working`, `normal` |
+| `starved` | `no-ingredients`, `item-ingredient-shortage`, `fluid-ingredient-shortage`, `no-fuel`, `no-recipe` |
+| `blocked` | `full-output`, `full-burnt-result-output`, `waiting-for-space-in-destination` |
+| `no_power` | `no-power`, `low-power`, `not-plugged-in-electric-network` |
+| `disabled` | `disabled`, `disabled-by-control-behavior`, `disabled-by-script`, `closed-by-circuit-network`, `marked-for-deconstruction`, `recipe-not-researched` |
+| `missing` | `missing` |
+| `unknown` | every other non-empty status |
+
+## Daemon to controllers: MQTT
+
+The daemon publishes retained QoS 1 frames to:
+
+```text
+factorio-display/v2/channels/set
+```
+
+A frame always contains exactly one unique record for every channel `0..63`:
+
+```json
+{
+  "version": 2,
+  "sequence": 9,
+  "expires_in_ms": 7000,
+  "channels": [
+    {"channel": 0, "r": 0, "g": 255, "b": 0, "brightness": 192, "effect": "solid"}
+  ]
+}
+```
+
+The example array is abbreviated. MQTT frame sequences are generated by the daemon and increase on every publication; they are independent from Factorio packet sequences. The daemon publishes on startup, after every accepted UDP packet, after a valid color reload, on a stale/fresh transition, and every five seconds.
+
+`expires_in_ms` is a relative lifetime so an ESP does not require a wall clock. Controllers accept `1..60000` milliseconds; daemon frames use `7000`. Omitted brightness defaults to `255` for compatibility, but daemon-generated frames always include it.
+
+The controller validates the complete global frame before changing any pixels. It rejects malformed JSON, a wrong version, incomplete or duplicate channels, invalid values/effects, an invalid expiry, or a non-increasing sequence. After MQTT reconnect it resets its local sequence baseline so the broker's retained frame—or a restarted daemon—can restore the display.
+
+Each controller stores `pixel_count` and `channel_offset`. Local pixel `n` uses global channel `channel_offset + n`, with these constraints:
+
+```text
+1 <= pixel_count <= 16
+0 <= channel_offset <= 63
+channel_offset + pixel_count <= 64
+```
+
+## Device topics
+
+For a configured device ID, firmware uses:
+
+```text
+factorio-display/v2/device/<device-id>/availability
+factorio-display/v2/device/<device-id>/telemetry
+```
+
+Availability is a retained plain-text `online` or `offline` value. The MQTT Last Will publishes retained `offline` at QoS 1 after an unclean disconnect. The firmware explicitly publishes retained `online` after connecting.
+
+Telemetry is non-retained JSON published every 30 seconds:
+
+```json
+{
+  "version": 1,
+  "firmware": "2.0.0",
+  "ip": "192.168.1.50",
+  "rssi": -55,
+  "uptime_s": 1234,
+  "pixel_count": 8,
+  "channel_offset": 0,
+  "pixel_order": "RGB"
+}
+```
+
+Mosquitto ACLs allow the `daemon` user to publish global frames and inspect device availability/telemetry. The `device` user can read global frames and publish only device availability/telemetry topics.
