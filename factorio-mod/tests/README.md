@@ -1,13 +1,11 @@
 # In-game acceptance checklist
 
 1. Launch Factorio 2.1 with `--enable-lua-udp 34199` and enable the mod. Port 34199 is Factorio's local port; the daemon receives the mod's packets on port 34198.
-2. Use the shortcut, drag over exactly one assembler or furnace, and assign channel `0` using the numeric field.
-3. Enable Alt mode and verify a green circle marks the machine; disable Alt mode and confirm the circle is hidden. Ctrl+Shift+D should still list it.
-4. Change it to another channel and confirm duplicate values and numbers outside `0..63` are rejected; remove it and confirm the list updates.
-5. Mine or destroy an assigned machine and confirm its next UDP status is `missing`.
-6. Observe a state transition arriving within 0.5 seconds and full `snapshot` packets every five seconds.
-7. Save/reload and confirm the save ID, sequence, numbered assignments, and marks persist.
-8. Place both a standard small lamp and a Physical display lamp. Assign each with the shortcut and confirm the assignment dialog includes brightness and effect controls.
-9. Open Ctrl+Shift+D, change each lamp's brightness/effect inline, click Apply, and confirm rename/remove still work.
-10. Open either lamp normally and confirm the native GUI still offers enable/disable, color mapping, separate RGB signals, and packed RGB mode.
-11. Test brightness values 0 and 255 plus solid, blink, and pulse, then drive each native color mode from the circuit network and confirm its evaluated color reaches the corresponding physical pixel.
+2. Place two standard lamps. Use the shortcut or Alt+Shift+D, drag over exactly one lamp, and assign it channel `1` with the numeric field. Assign the other lamp channel `64`.
+3. Enable Alt mode and verify each assigned lamp shows its channel marker; disable Alt mode and confirm the markers are hidden.
+4. Assign an already-used channel to the other lamp and confirm ownership moves to that lamp. Close an unassigned lamp's dialog and confirm no assignment is created.
+5. In the assignment dialog, test brightness values `0` and `255` and select each of `solid`, `blink`, and `pulse`.
+6. Open the assignment list with Ctrl+Shift+D. Confirm both channels are sorted numerically, edit brightness and effect values there, use the camera to jump to a lamp, and remove an assignment.
+7. Connect a lamp to the circuit network. Verify enabled and disabled states, fractional and byte RGB values, color mapping, separate RGB signals, and packed RGB mode reach the corresponding physical LED.
+8. Observe changed lamp state arriving in an `update` within one tick and complete `snapshot` packets every 300 ticks (five seconds at 60 UPS). Confirm channel `1` is sent as UDP channel `0` and channel `64` as UDP channel `63`.
+9. Save and reload. Confirm the save ID, sequence, assignments, brightness/effects, and Alt-mode markers persist, and that loading emits a complete `reset` packet before normal updates resume.

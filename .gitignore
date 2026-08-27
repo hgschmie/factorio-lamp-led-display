@@ -6,8 +6,9 @@ firmware/.pio/
 firmware/.pio-core/
 *.zip
 .DS_Store
-.factorio-test-mods/
-factorio-mod/tests/.pio-core
+# Test artifacts
+/.factorio-test-mods/
+/factorio-mod/tests/.pio-core/
 pcb/drc-errors.json
 pcb/drc-report.json
 pcb/erc-report.json
