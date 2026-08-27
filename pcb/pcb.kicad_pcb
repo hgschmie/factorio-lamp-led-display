@@ -89,7 +89,6 @@
 		)
 		(capping no)
 		(filling no)
-		(zone_defaults)
 		(grid_origin 20 20)
 		(pcbplotparams
 			(layerselection 0x00000000_00000000_55555555_5755f5ff)
@@ -366,6 +365,100 @@
 			(pinfunction "Pin_4_4")
 			(pintype "passive")
 			(uuid "c3f02f55-f6ca-4eb0-a4d4-3c388e1967e4")
+		)
+		(embedded_fonts no)
+	)
+	(footprint "display_parts:gear_logo"
+		(layer "F.Cu")
+		(uuid "12c9e91a-5196-41be-8348-481029ca4459")
+		(at 28.75 43)
+		(property "Reference" "G***"
+			(at 0 -7 0)
+			(layer "F.SilkS")
+			(hide yes)
+			(uuid "72bf79df-e45c-4da9-b577-41179ad476c5")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "gear_logo"
+			(at 0 7 0)
+			(layer "F.Fab")
+			(uuid "0af5abd8-76dc-4c28-863d-133a77bd570c")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "9fa0f9f6-9173-483d-9427-b4379691870a")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "3a1aa5bf-85ad-4ca3-b7a8-2143155bf3c8")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(attr board_only exclude_from_pos_files exclude_from_bom)
+		(duplicate_pad_numbers_are_jumpers no)
+		(fp_poly
+			(pts
+				(xy 0.4137 -5) (xy -0.1773 -5) (xy -0.2555 -4.9806) (xy -0.2998 -4.9291) (xy -0.3816 -4.6532) (xy -0.495 -4.1568)
+				(xy -0.5798 -4.0114) (xy -0.6895 -3.9495) (xy -1.3436 -3.7719) (xy -1.8952 -3.5604) (xy -2.0213 -3.5446)
+				(xy -2.1316 -3.5846) (xy -2.6832 -4.0308) (xy -2.8093 -4.0889) (xy -2.9354 -4.0762) (xy -3.2427 -3.861)
+				(xy -3.6288 -3.4791) (xy -3.6883 -3.3845) (xy -3.6574 -3.2664) (xy -3.2918 -2.6517) (xy -3.23 -2.4705)
+				(xy -3.8434 -1.2096) (xy -3.9064 -1.1168) (xy -3.9914 -1.0659) (xy -4.2435 -1.0229) (xy -4.543 -1.018)
+				(xy -4.8661 -0.9617) (xy -4.9473 -0.8471) (xy -5 -0.5713) (xy -5 0.0985) (xy -4.9806 0.1767) (xy -4.9212 0.224)
+				(xy -4.4878 0.3197) (xy -4.078 0.4368) (xy -4.0205 0.4773) (xy -3.9447 0.6659) (xy -3.8047 1.2018)
+				(xy -3.5507 1.8479) (xy -3.547 1.9583) (xy -3.5943 2.0686) (xy -3.9004 2.431) (xy -4.0877 2.6911)
+				(xy -4.0804 2.8487) (xy -3.9089 3.1075) (xy -3.5264 3.5027) (xy -3.4161 3.5755) (xy -3.3373 3.5791)
+				(xy -3.2506 3.5518) (xy -2.6123 3.1742) (xy -2.431 3.1505) (xy -2.108 3.2961) (xy -1.0048 1.2914)
+				(xy -1.312 0.9969) (xy -1.4745 0.7841) (xy -1.654 0.3034) (xy -1.654 -0.3822) (xy -1.5218 -0.7447)
+				(xy -1.3757 -0.9969) (xy -1.1151 -1.2727) (xy -0.8865 -1.449) (xy -0.7131 -1.5339) (xy -0.3428 -1.654)
+				(xy 0.2797 -1.6503) (xy 0.5792 -1.5467) (xy 0.7526 -1.4587) (xy 1.0205 -1.2806) (xy 1.1502 -1.1544)
+				(xy 1.38 -0.8314) (xy 1.4551 -0.6737) (xy 1.5752 -0.264) (xy 1.58 0.1379) (xy 1.5321 0.398) (xy 1.4679 0.5792)
+				(xy 1.2411 0.9811) (xy 1.0362 1.1896) (xy 0.7447 1.3969) (xy 0.264 1.5752) (xy -0.3428 1.5752) (xy -0.7447 1.443)
+				(xy -1.0048 1.2914) (xy -2.108 3.2961) (xy -1.7928 3.4858) (xy -1.2018 3.7567) (xy -1.1168 3.8258)
+				(xy -1.0659 3.9125) (xy -1.0575 4.1095) (xy -0.9835 4.5193) (xy -0.9792 4.7321) (xy -0.9435 4.8175)
+				(xy -0.8471 4.8776) (xy -0.3428 4.9261) (xy -0.2246 5) (xy -0.1815 4.9939) (xy -0.1064 4.9382) (xy 0.0118 5)
+				(xy 0.0876 4.9963) (xy 0.1343 4.9539) (xy 0.2586 4.6691) (xy 0.3197 4.3302) (xy 0.4361 3.9834) (xy 0.4779 3.924)
+				(xy 0.5713 3.8707) (xy 0.7131 3.8489) (xy 1.2253 3.6931) (xy 1.9109 3.4276) (xy 1.9897 3.4409) (xy 2.1237 3.5264)
+				(xy 2.6378 3.9792) (xy 2.699 4.0107) (xy 2.7856 4.0101) (xy 2.8802 3.9726) (xy 3.2978 3.6507) (xy 3.544 3.4003)
+				(xy 3.5755 3.3373) (xy 3.5791 3.2584) (xy 3.5391 3.1481) (xy 3.1421 2.5099) (xy 3.1118 2.4153) (xy 3.1385 2.3049)
+				(xy 3.4858 1.714) (xy 3.6731 1.249) (xy 3.8058 1.0296) (xy 3.8653 0.9896) (xy 4.0308 0.9466) (xy 4.4248 0.9393)
+				(xy 4.5587 0.9047) (xy 4.7163 0.8974) (xy 4.8109 0.8587) (xy 4.8733 0.7841) (xy 4.8903 0.5082) (xy 4.9315 0.3664)
+				(xy 5 0.264) (xy 5 -0.1852) (xy 4.9782 -0.2301) (xy 4.6927 -0.3422) (xy 4.0386 -0.4822) (xy 3.9453 -0.5355)
+				(xy 3.8974 -0.6107) (xy 3.6537 -1.4224) (xy 3.561 -1.6194) (xy 3.4343 -1.9819) (xy 3.4543 -2.0686)
+				(xy 3.5495 -2.2183) (xy 3.861 -2.5886) (xy 4.0107 -2.8172) (xy 3.9931 -2.9432) (xy 3.7294 -3.2978)
+				(xy 3.3845 -3.6434) (xy 3.2821 -3.6894) (xy 3.1875 -3.6574) (xy 2.5019 -3.2439) (xy 2.3759 -3.2318)
+				(xy 1.7612 -3.5482) (xy 1.1623 -3.8083) (xy 1.0562 -3.8889) (xy 0.9896 -4.0149) (xy 0.8883 -4.88)
+				(xy 0.8471 -4.9139) (xy 0.7131 -4.9521)
+			)
+			(stroke
+				(width 0.01)
+				(type solid)
+			)
+			(fill yes)
+			(layer "F.SilkS")
+			(uuid "e528d1fa-106e-4925-9faa-faa2b23649a8")
 		)
 		(embedded_fonts no)
 	)
@@ -856,9 +949,10 @@
 		(uuid "64968509-c109-422e-a246-dd07ae3baf4e")
 		(at 71 71)
 		(property "Reference" "H4"
-			(at 0 -4.15 0)
+			(at -5 0.5 0)
 			(unlocked yes)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "58e625eb-c56d-4e98-b566-bd601f444d07")
 			(effects
 				(font
@@ -1070,7 +1164,7 @@
 		(uuid "7b87b1a2-37c3-42b6-82d2-ba04809a08dd")
 		(at 54.5 30 180)
 		(property "Reference" "C2"
-			(at 2.5 2.5 0)
+			(at 2.5 0 0)
 			(unlocked yes)
 			(layer "F.SilkS")
 			(uuid "bcee0d40-d7fc-461a-9751-60253868f40f")
@@ -1601,6 +1695,7 @@
 			(at 0 -1 90)
 			(unlocked yes)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "079162d6-4f8c-49e4-827e-ff928f451b38")
 			(effects
 				(font
@@ -1702,7 +1797,7 @@
 			(uuid "0090cb36-c7bf-46d1-9528-629749b5a551")
 		)
 		(fp_text user "U1"
-			(at -3 -4.31 90)
+			(at 0 11.19 90)
 			(unlocked yes)
 			(layer "F.SilkS")
 			(uuid "0c6f1667-b4a8-4a9d-9187-e0759694303f")
@@ -1713,8 +1808,8 @@
 				)
 			)
 		)
-		(fp_text user "Factorio Lamp Driver"
-			(at 8 29.19 90)
+		(fp_text user "U1"
+			(at 0 0.19 90)
 			(unlocked yes)
 			(layer "F.Fab")
 			(uuid "6edcac5f-effb-4cb1-99cc-a4d6f91ddedd")
@@ -1863,7 +1958,7 @@
 			(drill 1)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "/GPIO4")
+			(net "Net-(U1-GPIO4{slash}ADC1{slash}SDA)")
 			(pinfunction "GPIO4/ADC1/SDA_13")
 			(pintype "bidirectional")
 			(uuid "76312366-2bac-49f8-93ef-63edc535c0ae")
@@ -1911,6 +2006,7 @@
 			(at -2 4.5 0)
 			(unlocked yes)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "cf2929b9-319c-441e-91b2-541194171c43")
 			(effects
 				(font
@@ -2495,7 +2591,7 @@
 		(uuid "b131f42d-a984-4eae-b068-d05e36ce0bc7")
 		(at 38 25 -90)
 		(property "Reference" "C1"
-			(at -3 3.5 270)
+			(at 1.5 2.5 270)
 			(unlocked yes)
 			(layer "F.SilkS")
 			(uuid "0a9816c8-68a1-45c1-8d9d-b00a7dd683c1")
@@ -4662,7 +4758,7 @@
 			(drill 2)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "/GPIO4")
+			(net "Net-(U1-GPIO4{slash}ADC1{slash}SDA)")
 			(pinfunction "1_1")
 			(pintype "passive")
 			(uuid "23d21a28-ac1f-48d9-badb-24d798a72d41")
@@ -4674,7 +4770,7 @@
 		(uuid "baec526d-379a-4a4c-8466-6d00bdcc4eb6")
 		(at 40.16 54.7 180)
 		(property "Reference" "R1"
-			(at 2.76 -2.3 0)
+			(at 5.16 -0.05 0)
 			(unlocked yes)
 			(layer "F.SilkS")
 			(uuid "626418d9-5ff6-4f85-9d35-7ebc639e0328")
@@ -4846,6 +4942,7 @@
 			(at -3 3.5 0)
 			(unlocked yes)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "16ea9335-b94e-41a0-baf6-d2583d817c2d")
 			(effects
 				(font
@@ -4948,7 +5045,7 @@
 		(uuid "bea67808-e8fa-45f4-858c-82903261e44c")
 		(at 46.88 35.385001)
 		(property "Reference" "U2"
-			(at 3.81 -2.33 0)
+			(at 3.87 -2.635001 0)
 			(unlocked yes)
 			(layer "F.SilkS")
 			(uuid "9f8ea6ef-46aa-4753-a231-cc25692ed2ef")
@@ -4995,7 +5092,7 @@
 			)
 		)
 		(property ki_fp_filters "DIP*W7.62mm* SO14* SSOP?14* TSSOP?14* SOIC*3.9x8.7mm*P1.27mm*")
-		(path "/af582141-d5d1-480f-9f4b-015355485304")
+		(path "/86c4ed58-e2d0-4692-a9b1-fb0ecbe03086")
 		(sheetname "/")
 		(sheetfile "pcb.kicad_sch")
 		(units
@@ -5224,7 +5321,7 @@
 			(drill 0.8)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
-			(net "/GPIO4")
+			(net "Net-(U1-GPIO4{slash}ADC1{slash}SDA)")
 			(pintype "input")
 			(uuid "13f130b0-e426-4ae4-affb-e5074dbb458e")
 		)
@@ -5677,9 +5774,10 @@
 		(uuid "f727bf24-e5c3-4949-94bc-94e52e5ef3c3")
 		(at 24 71)
 		(property "Reference" "H3"
-			(at 0 -4.15 0)
+			(at 4.4 1.5 0)
 			(unlocked yes)
 			(layer "F.SilkS")
+			(hide yes)
 			(uuid "39ad925b-e880-4ad2-8cf6-35c3baa500ea")
 			(effects
 				(font
@@ -6137,6 +6235,71 @@
 		(fill no)
 		(layer "Edge.Cuts")
 		(uuid "a80b7d59-4ba5-47ca-85fa-6c9b700c7b87")
+	)
+	(gr_text "Factorio Lamp LED Display\n\nhttps://github.com/hgschmie/factorio-lamp-led-display\nCopyright (C) 2026 Henning Schmiedehausen\n"
+		(at 73 66 90)
+		(layer "F.SilkS")
+		(uuid "fbbfbe31-4a5f-4038-96d1-64697784f739")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.125)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "DOut"
+		(at 25.2 67.55 0)
+		(layer "F.SilkS")
+		(uuid "20702490-6410-4a36-b541-49e1ca4953bd")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.2)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "+5V"
+		(at 25.6 62.5 0)
+		(layer "F.SilkS")
+		(uuid "26a9008e-6fa3-4dc9-b278-2e25ed523f99")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.2)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "GND"
+		(at 25.65 65 0)
+		(layer "F.SilkS")
+		(uuid "6efd73e1-c5b1-4bf4-b452-b3d26fa8df6c")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.2)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "DIn"
+		(at 26.25 60 0)
+		(layer "F.SilkS")
+		(uuid "a0427f19-b137-4b52-8c88-25eec5867167")
+		(effects
+			(font
+				(size 0.8 0.8)
+				(thickness 0.2)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
 	)
 	(segment
 		(start 62.5 65.12)
@@ -6615,7 +6778,7 @@
 		(end 40.205001 45.545001)
 		(width 0.25)
 		(layer "F.Cu")
-		(net "/GPIO4")
+		(net "Net-(U1-GPIO4{slash}ADC1{slash}SDA)")
 		(uuid "5231bcc2-5d2c-4f18-93f5-fa591f6f0f09")
 	)
 	(segment
@@ -6623,7 +6786,7 @@
 		(end 45.5 27.5)
 		(width 0.25)
 		(layer "F.Cu")
-		(net "/GPIO4")
+		(net "Net-(U1-GPIO4{slash}ADC1{slash}SDA)")
 		(uuid "b910ef60-b804-4739-b825-c02e191dceb1")
 	)
 	(segment
@@ -6631,7 +6794,7 @@
 		(end 45.5 44.165001)
 		(width 0.25)
 		(layer "F.Cu")
-		(net "/GPIO4")
+		(net "Net-(U1-GPIO4{slash}ADC1{slash}SDA)")
 		(uuid "c9576708-6b49-4fef-9000-bba5aeddf25d")
 	)
 	(segment
@@ -6639,7 +6802,7 @@
 		(end 46.88 45.545001)
 		(width 0.25)
 		(layer "F.Cu")
-		(net "/GPIO4")
+		(net "Net-(U1-GPIO4{slash}ADC1{slash}SDA)")
 		(uuid "e5ac16c1-8bd6-449c-98b5-f3bac7e55040")
 	)
 	(segment
