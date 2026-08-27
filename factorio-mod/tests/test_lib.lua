@@ -1,4 +1,4 @@
-package.path = './?.lua;../factorio_status_display/?.lua;' .. package.path
+package.path = './?.lua;../lamp_led_display/?.lua;' .. package.path
 
 local support = require('test_support')
 local eq, truthy, falsy = support.eq, support.truthy, support.falsy

@@ -20,7 +20,7 @@ Requirements are Factorio 2.1, Docker Desktop, PlatformIO, an ESP32-C3 SuperMini
 
    MQTT port 1883 is exposed to the LAN and is intentionally unencrypted; use only a trusted network. UDP is published by Docker on host loopback only. The daemon and controllers use separate Mosquitto users. Generated passwords, the Mosquitto password database, and `config.yaml` are gitignored.
 
-2. Copy `factorio-mod/factorio_status_display` into the Factorio mods directory and launch the game with Lua UDP explicitly enabled. On macOS this can be done from a terminal (adjust the application path if needed):
+2. Copy `factorio-mod/lamp_led_display` into the Factorio mods directory and launch the game with Lua UDP explicitly enabled. On macOS this can be done from a terminal (adjust the application path if needed):
 
    ```sh
    /Applications/factorio.app/Contents/MacOS/factorio --enable-lua-udp 34199
