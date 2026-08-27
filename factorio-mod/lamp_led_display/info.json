@@ -1,6 +1,6 @@
 {
   "name": "lamp_led_display",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "title": "Lamp LED Display",
   "description": "Display Factorio Lamps using Neopixel LEDs",
   "author": "hgschmie",
