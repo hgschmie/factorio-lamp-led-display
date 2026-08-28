@@ -2,6 +2,8 @@
 
 This directory contains the KiCad project for the eight-channel LED interface board.
 
+![KiCad rendered PCB Image](/images/pcb-rendered.png)
+
 ## Project files
 
 - `pcb.kicad_pro`, `pcb.kicad_sch`, and `pcb.kicad_pcb` are the KiCad project, schematic, and board layout.
