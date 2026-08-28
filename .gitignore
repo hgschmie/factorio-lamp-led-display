@@ -12,6 +12,6 @@ firmware/.pio-core/
 pcb/drc-errors.json
 pcb/drc-report.json
 pcb/erc-report.json
-pcb/production
 .vscode/
 pcb/~pcb.kicad_pro.lck
+pcb/pcb.kicad_prl
