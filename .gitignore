@@ -15,3 +15,4 @@ pcb/erc-report.json
 .vscode/
 pcb/~pcb.kicad_pro.lck
 pcb/pcb.kicad_prl
+*.lck
