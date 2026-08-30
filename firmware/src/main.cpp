@@ -10,6 +10,7 @@
 #include <cmath>
 #include <string>
 
+#include "ConnectionRecovery.h"
 #include "FrameParser.h"
 
 #ifndef FIRMWARE_VERSION
@@ -21,6 +22,8 @@ constexpr uint8_t BOOT_PIN = 9;
 constexpr uint32_t BOOT_HOLD_MS = 5000;
 constexpr uint32_t TELEMETRY_MS = 30000;
 constexpr uint32_t MQTT_RETRY_MS = 5000;
+constexpr uint32_t WIFI_RETRY_MS = 5000;
+constexpr uint32_t WIFI_RESTART_MS = 60000;
 
 struct Settings {
   String broker;
@@ -51,6 +54,7 @@ uint32_t lastTelemetry = 0;
 uint32_t lastMQTTAttempt = 0;
 volatile bool portalRequested = false;
 String mdnsHostname;
+display::WiFiRecovery wifiRecovery(WIFI_RETRY_MS, WIFI_RESTART_MS);
 
 String topic(const char* suffix) { return "factorio-display/v2/device/" + settings.device + "/" + suffix; }
 String channelFrameTopic() { return "factorio-display/v2/channels/set"; }
@@ -163,9 +167,14 @@ void saveConfigPage() {
   delay(300); ESP.restart();
 }
 
-void startConfigServer() {
+void startMDNS() {
+  MDNS.end();
   mdnsHostname = makeHostname();
   if (MDNS.begin(mdnsHostname.c_str())) MDNS.addService("http", "tcp", 80);
+}
+
+void startConfigServer() {
+  startMDNS();
   webServer.on("/", HTTP_GET, [](){ showConfigPage(); });
   webServer.on("/save", HTTP_POST, saveConfigPage);
   webServer.onNotFound([](){ webServer.sendHeader("Location", "/"); webServer.send(302); });
@@ -227,7 +236,12 @@ bool connectMQTT() {
   // A reconnect begins a new ordered delivery session. This permits the broker's
   // retained frame (and a restarted daemon's sequence) to restore the display.
   lastSequence=0;haveFrame=false;
-  publishAvailability("online"); mqtt.subscribe(channelFrameTopic().c_str(),1); return true;
+  if (!mqtt.subscribe(channelFrameTopic().c_str(),1)) {
+    Serial.println("MQTT subscription failed; retrying in 5 seconds"); mqtt.disconnect(); return false;
+  }
+  publishAvailability("online");
+  Serial.printf("MQTT connected to %s:%u as %s\n",settings.broker.c_str(),settings.port,clientId.c_str());
+  return true;
 }
 
 void publishTelemetry() {
@@ -271,11 +285,22 @@ void monitorBootButton(void*) {
   }
 }
 
+void logWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
+  if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+    Serial.printf("Wi-Fi disconnected (reason %u)\n",info.wifi_sta_disconnected.reason);
+  }
+}
+
 void setup() {
   Serial.begin(115200);pinMode(BOOT_PIN,INPUT_PULLUP);
   xTaskCreate(monitorBootButton,"boot-button",2048,nullptr,1,nullptr);
+  WiFi.onEvent(logWiFiEvent);
   loadSettings();
   while(!runPortal()){Serial.println("Wi-Fi/provisioning failed; retrying");delay(1000);}
+  WiFi.setAutoReconnect(true);
+  WiFi.setSleep(false);
+  wifiRecovery.markConnected();
+  Serial.printf("Wi-Fi connected: %s (RSSI %d dBm)\n",WiFi.localIP().toString().c_str(),WiFi.RSSI());
   const neoPixelType pixelType=(settings.pixelOrder=="GRB"?NEO_GRB:NEO_RGB)+NEO_KHZ800;
   strip=new Adafruit_NeoPixel(settings.pixels,DATA_PIN,pixelType);strip->begin();strip->clear();strip->show();
   mqtt.setServer(settings.broker.c_str(),settings.port);mqtt.setCallback(mqttCallback);mqtt.setBufferSize(8192);mqtt.setKeepAlive(30);mqtt.setSocketTimeout(2);
@@ -285,9 +310,20 @@ void setup() {
 void loop() {
   if(portalRequested){Serial.println("BOOT held for five seconds; starting captive portal");webServer.stop();MDNS.end();if(mqtt.connected()){publishAvailability("offline");mqtt.disconnect();}runPortal(true);ESP.restart();}
   webServer.handleClient();
-  if(WiFi.status()!=WL_CONNECTED){render();delay(10);return;}
+  if(WiFi.status()!=WL_CONNECTED){
+    const bool newlyDisconnected=!wifiRecovery.recovering();
+    const auto action=wifiRecovery.updateDisconnected(millis());
+    if(newlyDisconnected){Serial.println("Wi-Fi unavailable; stopping MQTT transport");wifiClient.stop();haveFrame=false;}
+    if(action==display::WiFiRecoveryAction::Reconnect){Serial.println("Attempting Wi-Fi reconnect");WiFi.reconnect();}
+    else if(action==display::WiFiRecoveryAction::Restart){Serial.println("Wi-Fi unavailable for 60 seconds; restarting");delay(50);ESP.restart();}
+    render();delay(10);return;
+  }
+  if(wifiRecovery.markConnected()){
+    Serial.printf("Wi-Fi restored: %s (RSSI %d dBm)\n",WiFi.localIP().toString().c_str(),WiFi.RSSI());
+    wifiClient.stop();lastMQTTAttempt=0;startMDNS();
+  }
   if(!mqtt.connected()&&(lastMQTTAttempt==0||millis()-lastMQTTAttempt>=MQTT_RETRY_MS)){lastMQTTAttempt=millis();connectMQTT();}
-  if(mqtt.connected())mqtt.loop();
+  if(mqtt.connected()&&!mqtt.loop())Serial.printf("MQTT connection lost (state %d)\n",mqtt.state());
   if(mqtt.connected()&&millis()-lastTelemetry>=TELEMETRY_MS){lastTelemetry=millis();publishTelemetry();}
   render();delay(10);
 }

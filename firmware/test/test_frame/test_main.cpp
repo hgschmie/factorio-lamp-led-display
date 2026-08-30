@@ -1,6 +1,7 @@
 #include <unity.h>
 #include <string>
 
+#include "ConnectionRecovery.h"
 #include "FrameParser.h"
 
 using display::Frame;
@@ -76,6 +77,33 @@ void test_connection_state_transitions() {
   TEST_ASSERT_EQUAL_INT(static_cast<int>(display::RenderState::AwaitingFrame), static_cast<int>(display::renderState(true, true, frame, 100)));
 }
 
+void test_wifi_recovery_retries_and_restarts() {
+  display::WiFiRecovery recovery(5000, 60000);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(display::WiFiRecoveryAction::Reconnect), static_cast<int>(recovery.updateDisconnected(100)));
+  TEST_ASSERT_TRUE(recovery.recovering());
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(display::WiFiRecoveryAction::None), static_cast<int>(recovery.updateDisconnected(5099)));
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(display::WiFiRecoveryAction::Reconnect), static_cast<int>(recovery.updateDisconnected(5100)));
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(display::WiFiRecoveryAction::Reconnect), static_cast<int>(recovery.updateDisconnected(60099)));
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(display::WiFiRecoveryAction::Restart), static_cast<int>(recovery.updateDisconnected(60100)));
+}
+
+void test_wifi_recovery_resets_after_connection() {
+  display::WiFiRecovery recovery(5000, 60000);
+  recovery.updateDisconnected(100);
+  TEST_ASSERT_TRUE(recovery.markConnected());
+  TEST_ASSERT_FALSE(recovery.recovering());
+  TEST_ASSERT_FALSE(recovery.markConnected());
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(display::WiFiRecoveryAction::Reconnect), static_cast<int>(recovery.updateDisconnected(200)));
+}
+
+void test_wifi_recovery_handles_millis_rollover() {
+  display::WiFiRecovery recovery(5000, 60000);
+  const uint32_t start = UINT32_MAX - 1000;
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(display::WiFiRecoveryAction::Reconnect), static_cast<int>(recovery.updateDisconnected(start)));
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(display::WiFiRecoveryAction::Reconnect), static_cast<int>(recovery.updateDisconnected(3999)));
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(display::WiFiRecoveryAction::Restart), static_cast<int>(recovery.updateDisconnected(58999)));
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_valid_frame_selects_configured_channel_range);
@@ -83,5 +111,8 @@ int main(int, char**) {
   RUN_TEST(test_requires_complete_unique_64_channel_frame);
   RUN_TEST(test_expiry_and_atomic_rejection);
   RUN_TEST(test_connection_state_transitions);
+  RUN_TEST(test_wifi_recovery_retries_and_restarts);
+  RUN_TEST(test_wifi_recovery_resets_after_connection);
+  RUN_TEST(test_wifi_recovery_handles_millis_rollover);
   return UNITY_END();
 }

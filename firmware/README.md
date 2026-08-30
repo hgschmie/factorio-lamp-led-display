@@ -32,7 +32,7 @@ The embedded environment is defined in `platformio.ini`:
 | WiFiManager | `2.0.17` |
 | ArduinoJson | `7.3.1` |
 | Adafruit NeoPixel | `1.12.5` |
-| Firmware version reported in telemetry | `2.0.0` |
+| Firmware version reported in telemetry | `2.0.1` |
 
 The native parser tests additionally require a host C++ compiler supported by PlatformIO. Unity is selected as the test framework.
 
@@ -195,6 +195,8 @@ factorio-display-<device-id>
 Connection behavior:
 
 - MQTT is attempted immediately and retried every five seconds after failure.
+- Wi-Fi power saving is disabled for connection stability. After a Wi-Fi loss, the controller explicitly retries every five seconds and reconnects MQTT as soon as an IP address is restored.
+- If Wi-Fi remains unavailable for 60 seconds, the controller restarts. The normal startup provisioning behavior applies if the network is still unavailable.
 - Keepalive is 30 seconds and socket timeout is two seconds.
 - The MQTT packet buffer is enlarged to 8192 bytes for the complete 64-channel frame.
 - Reconnecting resets the local sequence baseline and waits for the broker's retained frame.
@@ -262,7 +264,7 @@ WiFiManager/ESP Wi-Fi storage retains the Wi-Fi SSID and password separately. Fl
 - **Captive portal does not appear:** hold BOOT for five seconds after the firmware is running, reconnect to the `Factorio-Display-<chip-id>` access point, and browse to `192.168.4.1`.
 - **Wi-Fi works but MQTT authentication fails:** open the normal management page and replace the MQTT password. The `device` password is different from the daemon password.
 - **MQTT broker is unreachable:** use the Docker host's LAN IP, not `localhost`, `mosquitto`, or a `tcp://` URL.
-- **LEDs breathe amber:** MQTT is disconnected; check broker address, port, credentials, Mosquitto ACLs, and LAN reachability.
+- **LEDs breathe amber:** MQTT or Wi-Fi is disconnected. The controller retries Wi-Fi and MQTT automatically and restarts after 60 seconds without Wi-Fi. Check the serial log, broker address, credentials, Mosquitto ACLs, signal strength, and LAN reachability.
 - **LEDs remain black:** MQTT is connected, but no complete unexpired frame has been accepted. Inspect daemon logs and the serial console.
 - **LEDs show cyan pulse:** the controller is operating, but the daemon considers Factorio stale.
 - **Wrong LEDs are addressed:** verify pixel count and channel offset, remembering that Factorio channels are one-based while MQTT channels are zero-based.
