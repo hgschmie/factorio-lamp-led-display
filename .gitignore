@@ -16,3 +16,5 @@ pcb/erc-report.json
 pcb/~pcb.kicad_pro.lck
 pcb/pcb.kicad_prl
 *.lck
+__pycache__
+build
