@@ -24,6 +24,8 @@ constexpr uint32_t TELEMETRY_MS = 30000;
 constexpr uint32_t MQTT_RETRY_MS = 5000;
 constexpr uint32_t WIFI_RETRY_MS = 5000;
 constexpr uint32_t WIFI_RESTART_MS = 60000;
+constexpr uint8_t DEFAULT_PIXEL_COUNT = 8;
+constexpr uint8_t DEFAULT_CHANNEL_OFFSET = 0;
 
 struct Settings {
   String broker;
@@ -32,10 +34,10 @@ struct Settings {
   String password;
   String device;
   String pixelOrder = "RGB";
-  uint8_t pixels = 0;
-  uint8_t channelOffset = 0;
+  uint8_t pixels = DEFAULT_PIXEL_COUNT;
+  uint8_t channelOffset = DEFAULT_CHANNEL_OFFSET;
   bool valid() const {
-    return broker.length() && device.length() && (pixelOrder == "RGB" || pixelOrder == "GRB") &&
+    return broker.length() && port > 0 && device.length() && (pixelOrder == "RGB" || pixelOrder == "GRB") &&
       pixels >= 1 && pixels <= display::kMaxPixels && channelOffset < display::kChannelCount &&
       static_cast<uint16_t>(channelOffset) + pixels <= display::kChannelCount;
   }
@@ -59,14 +61,28 @@ display::WiFiRecovery wifiRecovery(WIFI_RETRY_MS, WIFI_RESTART_MS);
 String topic(const char* suffix) { return "factorio-display/v2/device/" + settings.device + "/" + suffix; }
 String channelFrameTopic() { return "factorio-display/v2/channels/set"; }
 
+String defaultDeviceID() {
+  return "esp-" + String((uint32_t)(ESP.getEfuseMac() & 0xffffff),HEX);
+}
+
+bool validDeviceID(const String& value);
+
 void loadSettings() {
   preferences.begin("display", true);
   settings.broker = preferences.getString("broker", ""); settings.port = preferences.getUShort("port", 1883);
   settings.username = preferences.getString("mqtt_user", ""); settings.password = preferences.getString("mqtt_pass", "");
-  settings.device = preferences.getString("device", ""); settings.pixelOrder = preferences.getString("order", "RGB");
-  settings.pixels = preferences.getUChar("pixels", 0);
-  settings.channelOffset = preferences.getUChar("chan_offset", 0);
+  settings.device = preferences.getString("device", defaultDeviceID()); settings.pixelOrder = preferences.getString("order", "RGB");
+  settings.pixels = preferences.getUChar("pixels", DEFAULT_PIXEL_COUNT);
+  settings.channelOffset = preferences.getUChar("chan_offset", DEFAULT_CHANNEL_OFFSET);
   preferences.end();
+  if (settings.port == 0) settings.port = 1883;
+  if (!validDeviceID(settings.device)) settings.device = defaultDeviceID();
+  if (settings.pixelOrder != "RGB" && settings.pixelOrder != "GRB") settings.pixelOrder = "RGB";
+  if (settings.pixels < 1 || settings.pixels > display::kMaxPixels) settings.pixels = DEFAULT_PIXEL_COUNT;
+  if (settings.channelOffset >= display::kChannelCount ||
+      static_cast<uint16_t>(settings.channelOffset) + settings.pixels > display::kChannelCount) {
+    settings.channelOffset = DEFAULT_CHANNEL_OFFSET;
+  }
 }
 
 void saveSettings(const Settings& value) {
@@ -183,37 +199,10 @@ void startConfigServer() {
 }
 
 bool runPortal(bool force = false) {
-  char broker[65], port[6], username[65], password[65], device[33], pixels[3], offset[3], order[4];
-  snprintf(broker,sizeof(broker),"%s",settings.broker.c_str()); snprintf(port,sizeof(port),"%u",settings.port);
-  snprintf(username,sizeof(username),"%s",settings.username.c_str()); snprintf(password,sizeof(password),"%s",settings.password.c_str());
-  snprintf(device,sizeof(device),"%s",settings.device.c_str()); snprintf(pixels,sizeof(pixels),"%u",settings.pixels);
-  snprintf(offset,sizeof(offset),"%u",settings.channelOffset);
-  snprintf(order,sizeof(order),"%s",settings.pixelOrder.c_str());
   WiFiManager wm;
-  WiFiManagerParameter pBroker("broker","MQTT broker host",broker,sizeof(broker));
-  WiFiManagerParameter pPort("port","MQTT broker port",port,sizeof(port));
-  WiFiManagerParameter pUser("username","MQTT username",username,sizeof(username));
-  WiFiManagerParameter pPass("password","MQTT password",password,sizeof(password));
-  WiFiManagerParameter pDevice("device","Device ID",device,sizeof(device));
-  WiFiManagerParameter pPixels("pixels","Pixel count (1-16)",pixels,sizeof(pixels));
-  WiFiManagerParameter pOffset("offset","Channel offset (0-63)",offset,sizeof(offset));
-  WiFiManagerParameter pOrder("order","Pixel color order (RGB or GRB)",order,sizeof(order));
-  wm.addParameter(&pBroker);wm.addParameter(&pPort);wm.addParameter(&pUser);wm.addParameter(&pPass);wm.addParameter(&pDevice);wm.addParameter(&pPixels);wm.addParameter(&pOffset);wm.addParameter(&pOrder);
   wm.setConfigPortalTimeout(300);
   const String ap = "Factorio-Display-" + String((uint32_t)(ESP.getEfuseMac() & 0xffffff),HEX);
-  const bool connected = force ? wm.startConfigPortal(ap.c_str()) : wm.autoConnect(ap.c_str());
-  if (!connected) return false;
-  const long portalPort=atol(pPort.getValue());const long portalPixels=atol(pPixels.getValue());const long portalOffset=atol(pOffset.getValue());
-  if(portalPort<1||portalPort>65535||portalPixels<1||portalPixels>display::kMaxPixels||portalOffset<0||portalOffset>=display::kChannelCount||portalOffset+portalPixels>display::kChannelCount){
-    Serial.println("Provisioning numeric values invalid");return false;
-  }
-  Settings candidate;
-  candidate.broker=pBroker.getValue();candidate.port=static_cast<uint16_t>(portalPort);
-  candidate.username=pUser.getValue();candidate.password=pPass.getValue();candidate.device=pDevice.getValue();candidate.pixels=static_cast<uint8_t>(portalPixels);
-  candidate.channelOffset=static_cast<uint8_t>(portalOffset);
-  candidate.pixelOrder=pOrder.getValue();candidate.pixelOrder.toUpperCase();
-  if (!candidate.valid() || !validDeviceID(candidate.device)) { Serial.println("Provisioning values invalid"); return false; }
-  settings=candidate;saveSettings(settings);return true;
+  return force ? wm.startConfigPortal(ap.c_str()) : wm.autoConnect(ap.c_str());
 }
 
 void mqttCallback(char*, byte* payload, unsigned int length) {
@@ -296,7 +285,12 @@ void setup() {
   xTaskCreate(monitorBootButton,"boot-button",2048,nullptr,1,nullptr);
   WiFi.onEvent(logWiFiEvent);
   loadSettings();
-  while(!runPortal()){Serial.println("Wi-Fi/provisioning failed; retrying");delay(1000);}
+  while(true){
+    const bool forcePortal=portalRequested;
+    if(forcePortal){portalRequested=false;Serial.println("BOOT held for five seconds; forcing captive portal");}
+    if(runPortal(forcePortal))break;
+    Serial.println("Wi-Fi provisioning failed; retrying");delay(1000);
+  }
   WiFi.setAutoReconnect(true);
   WiFi.setSleep(false);
   wifiRecovery.markConnected();
@@ -305,6 +299,7 @@ void setup() {
   strip=new Adafruit_NeoPixel(settings.pixels,DATA_PIN,pixelType);strip->begin();strip->clear();strip->show();
   mqtt.setServer(settings.broker.c_str(),settings.port);mqtt.setCallback(mqttCallback);mqtt.setBufferSize(8192);mqtt.setKeepAlive(30);mqtt.setSocketTimeout(2);
   startConfigServer();
+  if(!settings.valid()||!validDeviceID(settings.device))Serial.println("MQTT is not configured; use the management page");
 }
 
 void loop() {
@@ -322,7 +317,7 @@ void loop() {
     Serial.printf("Wi-Fi restored: %s (RSSI %d dBm)\n",WiFi.localIP().toString().c_str(),WiFi.RSSI());
     wifiClient.stop();lastMQTTAttempt=0;startMDNS();
   }
-  if(!mqtt.connected()&&(lastMQTTAttempt==0||millis()-lastMQTTAttempt>=MQTT_RETRY_MS)){lastMQTTAttempt=millis();connectMQTT();}
+  if(settings.valid()&&validDeviceID(settings.device)&&!mqtt.connected()&&(lastMQTTAttempt==0||millis()-lastMQTTAttempt>=MQTT_RETRY_MS)){lastMQTTAttempt=millis();connectMQTT();}
   if(mqtt.connected()&&!mqtt.loop())Serial.printf("MQTT connection lost (state %d)\n",mqtt.state());
   if(mqtt.connected()&&millis()-lastTelemetry>=TELEMETRY_MS){lastTelemetry=millis();publishTelemetry();}
   render();delay(10);

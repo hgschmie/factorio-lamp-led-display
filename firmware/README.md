@@ -32,7 +32,7 @@ The embedded environment is defined in `platformio.ini`:
 | WiFiManager | `2.0.17` |
 | ArduinoJson | `7.3.1` |
 | Adafruit NeoPixel | `1.12.5` |
-| Firmware version reported in telemetry | `2.0.1` |
+| Firmware version reported in telemetry | `2.0.2` |
 
 The native parser tests additionally require a host C++ compiler supported by PlatformIO. Unity is selected as the test framework.
 
@@ -92,25 +92,22 @@ At startup the firmware loads saved settings and asks WiFiManager to connect usi
 2. Join the Wi-Fi network named `Factorio-Display-<chip-id>`.
 3. If the portal does not open automatically, visit `http://192.168.4.1/`.
 4. Select the target Wi-Fi network and enter its password.
-5. Fill in the MQTT and display fields described below.
-6. Save and allow the controller to join the selected Wi-Fi network.
+5. Save and allow the controller to join the selected Wi-Fi network.
+6. From a computer on that network, open the normal management page and configure MQTT and display settings.
 
-Each portal session times out after five minutes. If connection or validation fails, the firmware waits one second and retries the Wi-Fi/provisioning flow.
+The captive portal configures Wi-Fi only and each session times out after five minutes. If connection fails, the firmware waits one second and retries the Wi-Fi provisioning flow. MQTT and display settings are deliberately kept on the normal management page, where they are easier to enter from a computer.
 
-### Captive-portal fields
+Until the management configuration is saved, the controller uses these defaults:
 
-| Field | Valid value |
+| Field | Default |
 | --- | --- |
-| MQTT broker host | Required hostname or IP address reachable from the ESP; up to 64 characters |
-| MQTT broker port | `1..65535`; normally `1883` |
-| MQTT username | Mosquitto device username; normally `device`; up to 64 characters |
-| MQTT password | Password created for the device user; up to 64 characters |
-| Device ID | 1–32 letters, digits, `.`, `_`, or `-` |
-| Pixel count | `1..16` |
-| Channel offset | `0..63` |
-| Pixel color order | `RGB` or `GRB` |
+| Device ID | `esp-<chip-id>` |
+| MQTT port | `1883` |
+| Pixel count | `8` |
+| Channel offset | `0` |
+| Pixel color order | `RGB` |
 
-The broker field is passed directly to the Arduino MQTT client. Enter only a hostname or IP address, such as `192.168.1.20`; do not enter a URL such as `tcp://192.168.1.20:1883`. The port has its own field. When Mosquitto runs through Docker Compose, use the Docker host's LAN address, not the internal service name `mosquitto`.
+MQTT remains disabled until a valid broker is saved through the management page. The broker field is passed directly to the Arduino MQTT client. Enter only a hostname or IP address, such as `192.168.1.20`; do not enter a URL such as `tcp://192.168.1.20:1883`. The port has its own field. When Mosquitto runs through Docker Compose, use the Docker host's LAN address, not the internal service name `mosquitto`.
 
 The device ID becomes part of the MQTT client ID, availability topic, telemetry topic, and mDNS hostname. Give every controller a unique ID.
 
