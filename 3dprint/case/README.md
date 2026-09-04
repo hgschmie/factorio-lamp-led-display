@@ -7,7 +7,7 @@ Parametric OpenSCAD sliding-lid box for the 55 x 55 mm board (ESP32-C3 SuperMini
 
 | file | purpose |
 |---|---|
-| `case.scad` | the model. Open in OpenSCAD; pick `part` in the Customizer (base / lid / board / assembly / exploded / section) |
+| `case.scad` | the model. Open in OpenSCAD; pick `part` in the Customizer (base / lid / board / assembly / exploded / section / screw_test) |
 | `board_data.scad` | board outline, holes, headers and component courtyards, **generated** from `../../pcb/pcb/pcb.kicad_pcb` |
 | `kicad2scad.py` | the generator: `uv run kicad2scad.py ../../pcb/pcb/pcb.kicad_pcb board_data.scad` |
 | `test_case.py` | fit tests: `uv run test_case.py` renders the STLs and checks them against the board data |
@@ -21,8 +21,11 @@ OpenSCAD has to be on `PATH` (or set `OPENSCAD=/Applications/OpenSCAD.app/Conten
 ## Design
 
 * Outer size 62.2 x 61 x 27.0 mm, walls 2.5 mm, floor 2 mm.
-* Board sits on four 6.5 mm standoffs (4 mm tall) over its M3 holes; 2.5 mm pilot holes for
-  M3 self-tapping screws (M3 x 6 works).
+* Board sits on four 6.5 mm standoffs (4 mm tall) over its M3 holes, with blind pilot holes for M3
+  self-tapping screws (M3 x 6 works; 4.4 mm of thread engages below the PCB, 1 mm of floor is left intact).
+  `screw_hole_d` is the diameter **as measured on the print**: FDM cuts vertical holes undersized, so the model
+  adds `hole_comp` on top of it. The shipped 2.8 mm was measured on a Bambu X1C with the coupon below;
+  recalibrate rather than guess if your printer or filament differs.
 * Lid (2 mm) slides in from the back edge (the edge away from the LED headers). Its left, right and front
   edges are chamfered top and bottom at 45 degrees to a V (0.4 mm flat at the tip) that runs in a matching V groove
   in the walls (1.2 mm deep, 0.3 mm gap to every flank). All groove faces are 45 degrees or steeper, so neither
@@ -43,22 +46,29 @@ OpenSCAD has to be on `PATH` (or set `OPENSCAD=/Applications/OpenSCAD.app/Conten
 * `lid_clear` -- gap between the lid's V edge and every groove flank. Lid too tight: +0.05; lid rattles: -0.05.
 * `lid_tip` -- flat at the tip of the V edge (0.4 mm = two layers). Larger makes the edge sturdier and the groove deeper.
 * `board_clear` -- board should drop in without force; the 0.5 mm default suits most printers.
-* `screw_hole_d` -- 2.5 mm bites well in PLA/PETG; use 2.8 if screws are hard to drive.
+* `screw_hole_d` / `hole_comp` -- the printed pilot diameter and the printer's hole shrinkage. Print
+  `part=screw_test` (a 5 minute coupon with one real-size boss per labelled diameter), drive an M3
+  self-tapping screw into each, and copy the label of the boss that bites firmly without needing much torque
+  into `screw_hole_d`. Screws too loose: go a step down; too hard to drive or the boss splits: a step up.
 
 ## Printing
 
 * Base: as modelled, open side up. No supports: the groove flanks are 45 degrees, the USB opening is a 13 mm bridge.
 * Lid: as modelled, flat underside on the bed, rear bar up. No supports; the lower V flanks are 45 degree overhangs.
 * Do not enable supports in the slicer for either part; the V grooves are exactly where support is hard to remove.
+* Calibration coupon: `make build/screw_test.stl`, print flat, no supports. Takes about 5 minutes and a gram
+  of filament, and saves reprinting the whole base to find the pilot diameter.
 * 0.2 mm layers, 3 walls, 20 % infill is plenty.
 
 ## Workflow
 
 1. Change the PCB in KiCad -> `make board_data` -> `make test` -> `make`.
 2. Tweak parameters -> `make test` -> `make`. `part=section` in the Customizer shows the V edge sitting in the groove.
+3. New printer or filament -> `make build/screw_test.stl`, print it, set `screw_hole_d` from the result.
 
 The tests check that the PCB and every component courtyard clear the base, standoffs sit exactly under
 each hole, the whole lid (plate, V edges, bar) can be swept along its slide path without hitting anything,
 the grooves actually hold the lid down, the back face is closed when the lid is in, no face of either part
 overhangs by more than 45 degrees (no supports), the lid window clears all eight headers, the USB opening is
-open where the module is, and both meshes are watertight.
+open where the module is, the pilot holes carry the shrinkage compensation and stay blind with enough wall
+around them, the coupon matches the real boss, and both meshes are watertight.

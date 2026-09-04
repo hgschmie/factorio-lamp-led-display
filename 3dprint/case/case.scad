@@ -17,7 +17,7 @@
 include <board_data.scad>
 
 /* [What to render] */
-part = "assembly"; // [base, lid, board, assembly, exploded, section]
+part = "assembly"; // [base, lid, board, assembly, exploded, section, screw_test]
 
 /* [Walls and floor] */
 wall        = 2.5;   // side wall thickness
@@ -29,7 +29,11 @@ corner_r    = 2.0;   // outer vertical edge radius
 board_clear  = 0.5;  // gap between PCB edge and inner wall, per side. TUNE
 standoff_h   = 4.0;  // PCB underside above the floor (room for trimmed THT leads)
 standoff_d   = 6.5;  // standoff outer diameter
-screw_hole_d = 2.5;  // pilot hole for M3 self-tapping into plastic. TUNE (2.8 if too tight)
+screw_hole_d = 2.8;  // pilot hole for M3 self-tapping into plastic, as measured ON THE PRINT. TUNE
+                     // 2.8 measured on a Bambu X1C with the screw_test coupon, 2026-09-04
+hole_comp    = 0.25; // FDM prints vertical holes undersized; added to every pilot hole in the model.
+                     // TUNE with part="screw_test": print the coupon, find the boss an M3 bites firmly
+                     // in, and set screw_hole_d to its label. See README.
 
 /* [Height budget] */
 max_part_h = 14;     // tallest part above the PCB top (C1, measured 14 mm). TUNE
@@ -69,6 +73,8 @@ cavity_h = standoff_h + pcb_thickness + max_part_h + top_clear;
 groove_z = floor_t + cavity_h;                  // nominal lid underside (lid centred in the V)
 board_off = [wall + board_clear + usb_gap, wall + board_clear];
 
+screw_hole_model = screw_hole_d + hole_comp;    // what the model cuts, so the print comes out at screw_hole_d
+
 // V edge / V groove. The groove is the lid's V profile grown by lid_clear perpendicular to every face,
 // so the groove's back flat has the height of the lid tip, lid_clear/sin(angle) beyond it.
 v_run        = (lid_t - lid_tip) / 2 / tan(groove_angle);   // horizontal run of each lid chamfer = tongue depth
@@ -85,6 +91,7 @@ lid_l = inner[1] + v_run - lid_end_clear + wall;    // front tip .. flush with t
 assert(v_run > 0, "lid_tip must be smaller than lid_t");
 assert(groove_depth < wall - 0.8, "groove too deep for the wall thickness");
 assert(v_shift < top_clear, "lid can drop onto the tallest part: raise top_clear or lower lid_clear");
+assert((standoff_d - screw_hole_model) / 2 >= 1.2, "standoff wall too thin: the boss will split when the screw forms its thread");
 
 // header row extents in board frame (courtyards of J1..J8)
 function part_box(ref) = [for (p = pcb_parts) if (p[0] == ref) [p[2], p[3], p[4], p[5]]][0];
@@ -144,7 +151,7 @@ module base() {
         }
         // screw pilot holes (leave 1 mm of floor)
         in_board_frame() for (h = pcb_holes)
-            translate([h[1], h[2], -(standoff_h + floor_t - 1)]) cylinder(d = screw_hole_d, h = standoff_h + floor_t);
+            translate([h[1], h[2], -(standoff_h + floor_t - 1)]) cylinder(d = screw_hole_model, h = standoff_h + floor_t);
         // lid groove: left + right walls and the front wall, open at the back
         groove_void();
         // back wall lowered to the lid underside so the lid can slide in; the lid's rear bar fills the recess
@@ -184,6 +191,31 @@ module lid() {
     }
 }
 
+// ---------------------------------------------------------------- pilot hole calibration coupon
+// A 5 minute print that reproduces one standoff at several pilot diameters, so hole_comp can be set from a
+// measurement instead of a guess. Drive an M3 self-tapping screw into each labelled boss: the right one bites
+// firmly all the way without needing much torque and without splitting the boss.
+screw_test_d = [2.6, 2.7, 2.8, 2.9];  // target PRINTED diameters, i.e. the value to copy into screw_hole_d
+                                      // (brackets the current screw_hole_d, so a recalibration can go either way)
+
+module screw_test() {
+    pitch = standoff_d + 5.5;
+    n     = len(screw_test_d);
+    plate = [n * pitch, standoff_d + 8];
+    yb    = plate[1] - standoff_d / 2 - 1.5;     // boss centre
+    difference() {
+        union() {
+            cube([plate[0], plate[1], floor_t]);
+            for (i = [0:n - 1]) translate([pitch * (i + 0.5), yb, 0]) cylinder(d = standoff_d, h = floor_t + standoff_h);
+            for (i = [0:n - 1]) translate([pitch * (i + 0.5), 3.4, floor_t])
+                linear_extrude(0.6) text(str(screw_test_d[i]), size = 3.6, halign = "center", valign = "center");
+        }
+        // same depth as the real case: starts 1 mm above the underside, runs out through the boss top
+        for (i = [0:n - 1]) translate([pitch * (i + 0.5), yb, 1])
+            cylinder(d = screw_test_d[i] + hole_comp, h = floor_t + standoff_h);
+    }
+}
+
 // ---------------------------------------------------------------- board mock-up (for fit checks only)
 function part_h(ref, value) =
     ref == "C1" ? max_part_h :
@@ -215,5 +247,6 @@ else if (part == "lid") lid();
 else if (part == "board") board();
 else if (part == "assembly") { base(); board(); color("lightsteelblue", 0.6) lid(); }
 else if (part == "exploded") { base(); translate([0, 0, 8]) board(); translate([0, 25, 25]) color("lightsteelblue") lid(); }
+else if (part == "screw_test") screw_test();
 // XZ cross-section through the middle of the closed box: shows the V edge sitting in the V groove
 else if (part == "section") projection(cut = true) rotate([-90, 0, 0]) translate([0, -outer[1] / 2, 0]) { base(); lid(); }

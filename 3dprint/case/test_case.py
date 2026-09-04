@@ -60,6 +60,7 @@ def geo():
              "groove_depth", "mouth_lo", "mouth_hi", "lid_w", "lid_l", "pcb_holes", "pcb_parts",
              "pcb_headers", "standoff_d", "screw_hole_d", "usb_y", "usb_z", "usb_w", "usb_h",
              "max_part_h", "top_clear", "hdr_x0", "hdr_x1", "hdr_y0", "hdr_y1", "pcb_size", "board_clear",
+             "hole_comp", "screw_hole_model", "screw_test_d", "floor_t", "standoff_h",
              "usb_z0", "usb_conn_h", "usb_overhang"]
     return {n: scad_var(n) for n in names}
 
@@ -72,6 +73,22 @@ def base():
 @pytest.fixture(scope="module")
 def lid():
     return render("lid")
+
+
+@pytest.fixture(scope="module")
+def coupon():
+    return render("screw_test")
+
+
+def hole_is(mesh, x, y, z, d, name):
+    """There is an open hole of diameter d at (x, y, z), with solid material just outside it."""
+    r = d / 2
+    for ang in (0, 90, 180, 270):
+        dx, dy = np.cos(np.radians(ang)), np.sin(np.radians(ang))
+        assert not mesh.contains([[x + dx * (r - 0.05), y + dy * (r - 0.05), z]])[0], \
+            f"{name}: hole is narrower than {d} mm"
+        assert mesh.contains([[x + dx * (r + 0.15), y + dy * (r + 0.15), z]])[0], \
+            f"{name}: hole is wider than {d} mm"
 
 
 def board_pt(geo, x, y, z):
@@ -224,6 +241,46 @@ def test_no_support_needed(base, lid, geo):
 
     check(base, 0, "base", [usb])
     check(lid, geo["groove_z"], "lid")
+
+
+def test_pilot_holes_are_compensated(base, geo):
+    """The model cuts screw_hole_d + hole_comp, so the printed hole comes out at screw_hole_d."""
+    assert geo["hole_comp"] > 0, "no FDM hole compensation: printed pilots come out undersized"
+    assert geo["screw_hole_model"] == pytest.approx(geo["screw_hole_d"] + geo["hole_comp"], abs=1e-9)
+    z = geo["pcb_z"] - geo["standoff_h"] / 2          # half-way down the boss
+    for ref, x, y, d in geo["pcb_holes"]:
+        p = board_pt(geo, x, y, 0)
+        hole_is(base, p[0], p[1], z, geo["screw_hole_model"], f"pilot {ref}")
+
+
+def test_standoff_wall_survives_the_screw(geo):
+    """Enough plastic around the pilot for a thread-forming M3 not to split the boss."""
+    wall = (geo["standoff_d"] - geo["screw_hole_model"]) / 2
+    assert wall >= 1.2, f"standoff wall is only {wall:.2f} mm"
+
+
+def test_pilot_holes_do_not_break_through_the_floor(base, geo):
+    """A blind hole: the case bottom stays closed so the box does not leak light or dust."""
+    for ref, x, y, d in geo["pcb_holes"]:
+        p = board_pt(geo, x, y, 0)
+        assert base.contains([[p[0], p[1], 0.5]])[0], f"pilot {ref} breaks through the floor"
+
+
+def test_screw_test_coupon(coupon, geo):
+    """The calibration coupon reproduces the real boss at each labelled diameter."""
+    assert coupon.is_watertight
+    targets = geo["screw_test_d"]
+    assert len(targets) >= 3, "a calibration coupon needs a few sizes to choose from"
+    assert geo["screw_hole_d"] in targets, "screw_hole_d should be one of the coupon's labelled sizes"
+    pitch = geo["standoff_d"] + 5.5
+    y = (len(targets) * pitch, geo["standoff_d"] + 8)[1] - geo["standoff_d"] / 2 - 1.5
+    lo, hi = coupon.bounds
+    assert hi[2] == pytest.approx(geo["floor_t"] + geo["standoff_h"], abs=1e-3), "boss height must match the case"
+    for i, d in enumerate(targets):
+        x = pitch * (i + 0.5)
+        z = geo["floor_t"] + geo["standoff_h"] / 2
+        hole_is(coupon, x, y, z, d + geo["hole_comp"], f"coupon boss {d}")
+        assert coupon.contains([[x, y, 0.5]])[0], f"coupon boss {d} is not blind"
 
 
 def test_header_window_covers_all_headers(lid, geo):
