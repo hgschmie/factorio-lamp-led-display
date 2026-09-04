@@ -55,8 +55,9 @@ def render(part):
 
 @pytest.fixture(scope="module")
 def geo():
-    names = ["outer", "case_h", "pcb_z", "pcb_top", "groove_z", "groove_h", "wall", "board_off", "inner",
-             "groove_depth", "lid_side_clear", "lid_t", "lid_w", "lid_l", "pcb_holes", "pcb_parts",
+    names = ["outer", "case_h", "pcb_z", "pcb_top", "groove_z", "wall", "corner_r", "board_off", "inner",
+             "lid_t", "lid_tip", "lid_clear", "lid_end_clear", "groove_angle", "v_run", "v_rise", "v_shift",
+             "groove_depth", "mouth_lo", "mouth_hi", "lid_w", "lid_l", "pcb_holes", "pcb_parts",
              "pcb_headers", "standoff_d", "screw_hole_d", "usb_y", "usb_z", "usb_w", "usb_h",
              "max_part_h", "top_clear", "hdr_x0", "hdr_x1", "hdr_y0", "hdr_y1", "pcb_size", "board_clear",
              "usb_z0", "usb_conn_h", "usb_overhang"]
@@ -127,8 +128,8 @@ def test_standoffs_under_every_hole(base, geo):
 
 
 def test_components_clear_the_lid(geo):
-    # the tallest part is the height budget; the lid underside sits top_clear above it
-    assert geo["groove_z"] >= geo["pcb_top"] + geo["max_part_h"] + geo["top_clear"] - 1e-6
+    # the lid rests on its lower V flanks, up to v_shift below the nominal underside; still above the tallest part
+    assert geo["groove_z"] - geo["v_shift"] >= geo["pcb_top"] + geo["max_part_h"] - 1e-6
 
 
 def test_components_clear_the_walls(base, geo):
@@ -139,26 +140,90 @@ def test_components_clear_the_walls(base, geo):
                 assert not base.contains([board_pt(geo, x, y, 2.0)])[0], f"{ref} collides with the case"
 
 
-def test_lid_fits_grooves(lid, geo):
+def test_lid_dimensions(lid, geo):
+    outer, wall = geo["outer"], geo["wall"]
     lo, hi = lid.bounds
-    groove_w = geo["inner"][0] + 2 * geo["groove_depth"]
-    assert hi[0] - lo[0] == pytest.approx(groove_w - 2 * geo["lid_side_clear"], abs=1e-3)
+    assert np.allclose([lo[0], hi[0]], [0, outer[0]], atol=1e-3), "rear bar should span the full outer width"
     assert lo[2] == pytest.approx(geo["groove_z"], abs=1e-3)
-    assert hi[2] == pytest.approx(geo["case_h"], abs=1e-3), "rear block should be flush with the wall tops"
-    assert hi[1] == pytest.approx(geo["outer"][1], abs=1e-3), "lid should be flush with the back face"
+    assert hi[2] == pytest.approx(geo["case_h"], abs=1e-3), "rear bar should be flush with the wall tops"
+    assert hi[1] == pytest.approx(outer[1], abs=1e-3), "lid should be flush with the back face"
+    # cross-section through the middle: V tips reach v_run past the inner wall faces, plate is lid_t thick
+    segs = trimesh.intersections.mesh_plane(lid, plane_normal=[0, 1, 0], plane_origin=[0, outer[1] / 2, 0])
+    slo, shi = segs.reshape(-1, 3).min(axis=0), segs.reshape(-1, 3).max(axis=0)
+    assert slo[0] == pytest.approx(wall - geo["v_run"], abs=1e-3)
+    assert shi[0] == pytest.approx(outer[0] - wall + geo["v_run"], abs=1e-3)
+    assert slo[2] == pytest.approx(geo["groove_z"], abs=1e-3)
+    assert shi[2] == pytest.approx(geo["groove_z"] + geo["lid_t"], abs=1e-3)
+    # the bar fills the back corners that the base leaves open above the lid
+    y, z = outer[1] - wall / 2, geo["case_h"] - 0.5
+    assert lid.contains([[1.0, y, z], [outer[0] - 1.0, y, z]]).all(), "rear bar does not fill the back corners"
+
+
+def lid_cloud(lid, geo):
+    """Grid points inside the lid: dense across the V edges (x, z), a few slices along the slide (y)."""
+    lo, hi = lid.bounds
+    xs = np.arange(lo[0] + 0.05, hi[0], 0.25)
+    zs = np.arange(lo[2] + 0.05, hi[2], 0.1)
+    back = geo["outer"][1] - geo["wall"]
+    ys = [lo[1] + 0.05, lo[1] + 0.5, geo["outer"][1] / 2, back - 0.05, back + 0.5]
+    grid = np.array([[x, y, z] for y in ys for x in xs for z in zs])
+    pts = grid[lid.contains(grid)]
+    assert len(pts) > 1000
+    return pts
 
 
 def test_lid_slides_through_base(base, lid, geo):
-    """Sweep the lid plate along its slide path; it must never hit the base."""
-    plate_z = geo["groove_z"] + geo["lid_t"] / 2
-    x0 = geo["wall"] - geo["groove_depth"] + geo["lid_side_clear"]
-    xs = np.linspace(x0 + 0.05, x0 + geo["lid_w"] - 0.05, 30)
-    for shift in np.linspace(0, geo["lid_l"], 20):
-        y_front = geo["wall"] - geo["groove_depth"] + geo["lid_side_clear"] + shift
-        ys = np.linspace(y_front + 0.05, y_front + geo["lid_l"] - 0.05, 30)
-        pts = np.array([[x, y, plate_z] for x in xs for y in ys])
-        pts = pts[pts[:, 1] < geo["outer"][1] + 30]
-        assert not base.contains(pts).any(), f"lid collides with base at slide offset {shift:.1f}"
+    """Push the whole lid (plate, V edges, bar) along its slide path; it must never hit the base."""
+    pts = lid_cloud(lid, geo)
+    for shift in [0, 0.3, 1, 3, 10, geo["outer"][1] / 2]:
+        hit = base.contains(pts + [0, shift, 0])
+        assert not hit.any(), f"lid collides with base at slide offset {shift}: {pts[hit][:3]}"
+
+
+def test_lid_is_retained_by_grooves(base, lid, geo):
+    """Wall material sits right above the lid's upper V flank (within the clearance): the lid cannot lift out."""
+    outer, wall = geo["outer"], geo["wall"]
+    a = np.radians(geo["groove_angle"])
+    u = geo["v_run"] / 2                                   # half-way along the chamfer
+    z = geo["groove_z"] + geo["lid_t"] - u * np.tan(a)     # lid's upper flank there
+    side_gap = geo["v_shift"]
+    front_gap = geo["v_shift"] + geo["lid_end_clear"] * np.tan(a)
+    probes = [(wall - u, outer[1] / 2, side_gap), (outer[0] - wall + u, outer[1] / 2, side_gap),
+              (outer[0] / 2, wall - u + geo["lid_end_clear"], front_gap)]
+    for x, y, gap in probes:
+        assert lid.contains([[x, y, z - 0.05]])[0], f"expected lid material at {(x, y)}"
+        assert not base.contains([[x, y, z + 0.05]])[0], f"no clearance above the lid flank at {(x, y)}"
+        assert base.contains([[x, y, z + gap + 0.1]])[0], f"nothing holds the lid down at {(x, y)}"
+
+
+def test_back_face_is_closed(base, lid, geo):
+    """With the lid in, the back of the box is solid from the floor to the wall tops, corners included."""
+    outer = geo["outer"]
+    y = outer[1] - geo["wall"] / 2
+    pts = np.array([[x, y, z] for x in (1.0, outer[0] / 2, outer[0] - 1.0)
+                    for z in np.arange(0.5, geo["case_h"] - 0.4, 0.25)])
+    covered = base.contains(pts) | lid.contains(pts)
+    assert covered.all(), f"gap in the back face at {pts[~covered][:3]}"
+
+
+def test_no_support_needed(base, lid, geo):
+    """Every downward-facing face is on the bed, the USB bridge, or inclined at most 45 deg from vertical."""
+    limit = -np.sin(np.radians(45)) - 1e-3
+    y = geo["board_off"][1] + geo["usb_y"]
+    z = geo["pcb_top"] + geo["usb_z"]
+    usb = ([-1, y - geo["usb_w"] / 2 - 0.1, z - geo["usb_h"] / 2 - 0.1], [geo["wall"] + 1, y + geo["usb_w"] / 2 + 0.1, z + geo["usb_h"] / 2 + 0.1])
+
+    def check(mesh, bed_z, name, allowed=()):
+        nz = mesh.face_normals[:, 2]
+        ctr = mesh.triangles_center
+        down = (nz < -0.01) & (np.abs(ctr[:, 2] - bed_z) > 1e-3)
+        for box in allowed:
+            down &= ~np.all((ctr >= box[0]) & (ctr <= box[1]), axis=1)
+        bad = down & (nz < limit)
+        assert not bad.any(), f"{name}: {bad.sum()} faces overhang more than 45 deg, e.g. at {ctr[bad][:3]}"
+
+    check(base, 0, "base", [usb])
+    check(lid, geo["groove_z"], "lid")
 
 
 def test_header_window_covers_all_headers(lid, geo):
