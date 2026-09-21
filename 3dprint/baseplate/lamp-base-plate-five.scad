@@ -33,8 +33,8 @@ module five_lamps() {
 }
 module five_box() {
     translate([five_box[0]+62.2,five_box[1],31.02426407]) rotate([0,180,0]) {
-        color([0.56,0.59,0.61]) import("base.stl");
-        color([0.4,0.44,0.46]) import("lid.stl");
+        color([0.56,0.59,0.61]) import("../case/out/base.stl");
+        color([0.4,0.44,0.46]) import("../case/out/lid.stl");
     }
 }
 module five_feet() {

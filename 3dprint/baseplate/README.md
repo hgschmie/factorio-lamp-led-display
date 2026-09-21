@@ -1,6 +1,6 @@
 # Eight-lamp base plate
 
-The original lamp project, `base.stl`, and `lid.stl` are unchanged.
+Reference models are shared with the neighboring projects: `../case/out/base.stl`, `../case/out/lid.stl`, and `../lamp/lamp.stl` (paths relative to this folder). Previews and clearance checks use these files; the printable baseplate geometry does not depend on importing them.
 
 ## Build with make
 
@@ -14,7 +14,7 @@ make -B              # Force a rebuild of printable files
 make clean           # Remove only Makefile-managed generated files
 ```
 
-The Makefile defaults to `/opt/homebrew/bin/openscad` and `python3` (standard library only). Override them if needed: `make OPENSCAD=/path/to/openscad PYTHON=python3`. Source STL/3MF files, archived versions, and historical comparison images are preserved by `make clean`. When running through the Codex sandbox on this machine, OpenSCAD needs outside-sandbox execution; ordinary Terminal use requires no special flag.
+The Makefile defaults to `openscad` on your PATH and `python3` (standard library only). Override them if needed: `make OPENSCAD=/path/to/openscad PYTHON=python3`. Source STL/3MF files, archived versions, and historical comparison images are preserved by `make clean`. When running through the Codex sandbox on this machine, OpenSCAD needs outside-sandbox execution; ordinary Terminal use requires no special flag.
 
 ## Small lamp-retaining lips
 
@@ -152,4 +152,4 @@ Run from this directory, using the command-line OpenSCAD installation:
 python3 reference/verify_meshes.py
 ```
 
-The reference lamp meshes were extracted from the supplied 3MF using its component transforms and normalized so the lamp base rests at Z=0. They are only used for previews and clearance checks. `reference/check-clearance.scad` contains checks for the default dimensions; update its fixed placements if the layout is changed. OpenSCAD may return zero-thickness contact faces for these checks; those are distinguished from positive-volume interference.
+The shared lamp STL is imported as a single mesh for previews and clearance checks. Its corner-based coordinates are shifted by (-18.83, -18.933, 0) mm to align it with the centered lamp seats; its bottom remains at Z=0. STL does not retain the former multi-part color assignments, so the lamp preview is a single color. The older extracted component STLs in `reference/` are retained as historical assets and are no longer build dependencies. `reference/check-clearance.scad` contains checks for the default dimensions; update its fixed placements if the layout is changed. OpenSCAD may return zero-thickness contact faces for these checks; those are distinguished from positive-volume interference.

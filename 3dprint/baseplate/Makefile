@@ -17,8 +17,7 @@ ASSEMBLY_PREVIEWS := output/assembly.png output/alternative-assembly.png \
 PREVIEWS := $(ASSEMBLY_PREVIEWS) output/plate.png output/alternative-plate.png \
             output/five-plate.png output/lamp-lip-test.png output/foot-tpu95a-v2.png \
             output/lamp-position-cover-detail.png
-LAMP_MESHES := reference/lamp-base.stl reference/lamp-dome.stl \
-               reference/lamp-antenna.stl reference/lamp-screws.stl
+REFERENCE_MESHES := ../case/out/base.stl ../case/out/lid.stl ../lamp/lamp.stl
 
 .PHONY: all stls check previews everything clean help
 all: stls check
@@ -63,7 +62,7 @@ $(PREVIEWS): lamp-base-plate.scad Makefile | output
 	"$(OPENSCAD)" $(SCAD_FLAGS) -o "$@" -D 'part="$(PART)"' -D 'foot_material="$(MATERIAL)"' --imgsize=$(SIZE) --camera=$(CAMERA) --autocenter --viewall --projection=o --colorscheme=Tomorrow "$(SOURCE)"
 
 $(ASSEMBLY_PREVIEWS): PART = assembly
-$(ASSEMBLY_PREVIEWS): base.stl lid.stl $(LAMP_MESHES)
+$(ASSEMBLY_PREVIEWS): $(REFERENCE_MESHES)
 output/alternative-assembly.png output/alternative-top.png output/alternative-plate.png: SOURCE = lamp-base-plate-alternative.scad
 output/alternative-assembly.png output/alternative-top.png output/alternative-plate.png: lamp-base-plate-alternative.scad
 output/alternative-assembly.png output/alternative-plate.png: SIZE = 1500,1400

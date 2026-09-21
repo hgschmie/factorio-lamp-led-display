@@ -214,10 +214,9 @@ module box_test() {
     }
 }
 module reference_lamp() {
-    color([0.23,0.26,0.28]) import("reference/lamp-base.stl");
-    color([0.86,0.94,0.87,0.88]) import("reference/lamp-dome.stl");
-    color([0.32,0.34,0.35]) import("reference/lamp-antenna.stl");
-    color([0.65,0.66,0.67]) import("reference/lamp-screws.stl");
+    // Shared assembled STL has a corner origin; seats use lamp centers.
+    translate([-lamp_width/2,-lamp_depth/2,0])
+        color([0.23,0.26,0.28]) import("../lamp/lamp.stl");
 }
 module assembly() {
     color([0.28,0.39,0.46]) plate();
@@ -226,8 +225,8 @@ module assembly() {
         translate([lamp_origin[0]+col*lamp_pitch,lamp_origin[1]+row*lamp_pitch,plate_thickness-recess_depth])
             reference_lamp();
     translate([box_origin[0],box_origin[1]+box_depth,plate_thickness+box_height]) rotate([180,0,0]) {
-        color([0.56,0.59,0.61]) import("base.stl");
-        color([0.4,0.44,0.46]) import("lid.stl");
+        color([0.56,0.59,0.61]) import("../case/out/base.stl");
+        color([0.4,0.44,0.46]) import("../case/out/lid.stl");
     }
 }
 

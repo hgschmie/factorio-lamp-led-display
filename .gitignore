@@ -20,3 +20,4 @@ __pycache__
 build
 3dprint/case/out
 .claude
+3dprint/baseplate/output/
