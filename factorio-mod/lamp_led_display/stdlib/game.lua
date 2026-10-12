@@ -10,10 +10,11 @@ setmetatable(Game, Game)
 local inspect = _ENV.inspect
 
 --- Return a valid player object from event, index, string, or userdata
----@param mixed string|number|LuaPlayer|table<string, any>
----@return LuaPlayer? player a valid player or nil
+---@param mixed? integer|string|LuaPlayer|EventData the player index, name, instance, or event
+---@return LuaPlayer? player_instance the player instance
 function Game.get_player(mixed)
     if type(mixed) == 'table' then
+        ---@cast mixed table<string, uint32|string>
         if mixed.player_index then
             return game.get_player(mixed.player_index)
         elseif mixed.__self and mixed.valid then
